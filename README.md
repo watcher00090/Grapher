@@ -1,3 +1,3 @@
 # Grapher
-Copyright James Pedersen
-All rights reserved
+Copyright James Pedersen,
+all rights reserved
