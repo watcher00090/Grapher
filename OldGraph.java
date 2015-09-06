@@ -15,7 +15,9 @@
  * Complex Numbers?
  * Tools to calculate the critical points and inflection points?
  * 3D graphing?
- * 
+ *  
+    //committest!
+ 
  * @author: James Pedersen
  */
 import java.awt.*;
