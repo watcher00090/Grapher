@@ -430,8 +430,8 @@ System.out.println("inner repaint is called");
                
             int hx1 = toGx(xmin); 
             int hx2 = toGx(xmax);
-            int xaxisy = toGy(0);
             int horizaxisy = HEIGHT - VERTICAL_BORDER_OFFSET;
+            int xaxisy = toGy(0);
             
             if (VERTICAL_BORDER_OFFSET <= xaxisy && xaxisy <= horizaxisy) horizaxisy = xaxisy;
 
@@ -459,10 +459,12 @@ System.out.println("inner repaint is called");
                     
             int vy1 = toGy(ymin); 
             int vy2 = toGy(ymax);
+            int vertaxisx = HORIZONTAL_BORDER_OFFSET;
             int yaxisx = toGx(0);
-            int vertaxisx = WIDTH - HORIZONTAL_BORDER_OFFSET;
-            
-            if (HORIZONTAL_BORDER_OFFSET <= yaxisx && yaxisx <= vertaxisx) vertaxisx = yaxisx;
+ 
+            if (vertaxisx < yaxisx && yaxisx <= WIDTH - HORIZONTAL_BORDER_OFFSET) { 
+                vertaxisx = yaxisx;
+            }
 
             g.drawLine(vertaxisx, vy1, vertaxisx, vy2);
           
@@ -479,12 +481,12 @@ System.out.println("inner repaint is called");
             
             g.drawString(
             ( new Double(ymin) ).toString() ,  
-            vertaxisx - VERTICAL_AXIS_LABELS_HORIZONTAL_OFFSET, 
+            vertaxisx + VERTICAL_AXIS_LABELS_HORIZONTAL_OFFSET, 
             vy1 + VERTICAL_AXIS_LABELS_VERTICAL_OFFSET );
         
             g.drawString(
             ( new Double(ymax) ).toString() ,  
-            vertaxisx - VERTICAL_AXIS_LABELS_HORIZONTAL_OFFSET, 
+            vertaxisx + VERTICAL_AXIS_LABELS_HORIZONTAL_OFFSET, 
             vy2 - VERTICAL_AXIS_LABELS_VERTICAL_OFFSET );
         } 
     
