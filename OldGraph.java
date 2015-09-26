@@ -52,7 +52,6 @@ class GraphController implements WindowListener, KeyListener, MouseMotionListene
         this.yincrementbar = yincrementbar;
         funcString = ""; 
        
-               
         inputbar.setText("x");
         xminbar.setText("-5");
         xmaxbar.setText("5");
