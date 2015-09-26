@@ -1,4 +1,5 @@
 import java.util.HashMap;
+import java.lang.Integer;
 
 enum State { 
 	INIT, WORD, INTEGER, DOUBLE, DONE;
@@ -424,15 +425,15 @@ class ProdNode extends Node {
 }
 /**
 
-Expr :== '-' Expr
+Expr :== '-' Term 
      :== Term
      :== Term +- Expr
     
-Term :== '-' Term
+Term :== '-' Factor
      :== Power
      :== Power /* Term
 
-Power :== '-' Power
+Power :== '-' Factor
       :== Factor
       :== Factor ^ Power
 
@@ -449,7 +450,11 @@ public class Parser {
 
     Tokenizer str;
     Node root;
-    
+    static char[] chars = {
+    'x', '1', '+', '-', '*', '/', '(', ')', '^'
+    };    
+
+
     public Parser(Tokenizer str) { 
         this.str = str;
         try { 
@@ -475,7 +480,7 @@ System.out.println("expr -->");
         Node left; 
         Tok t = str.nextToken(); 
         if (t == Tok.MINUS) {
-            left = new OpNode(Op.Times, new NumNode(-1), factor() ); 
+            left = new OpNode(Op.Times, new NumNode(-1), term() ); 
         }
         else if (t == Tok.INVALID) throw new Exception("INVALID_TOKEN"); //nongramatical: Quickly catches invalid tokens
         else {
@@ -484,15 +489,9 @@ System.out.println("expr -->");
         }
         Tok token = str.nextToken();  
 		if (token == Tok.PLUS) return new OpNode(Op.Plus, left, expr()); 
-        if (token == Tok.MINUS) return new OpNode(Op.Minus, left, expr());	
+        else if (token == Tok.MINUS) return new OpNode(Op.Minus, left, expr());	
         else { 
             pushBack("e", token);
-       
-        /* 
-        Tok EOS = str.nextToken(); //checks for invalid input expressions. 
-        if (EOS != Tok.EOS) throw new Exception("INVALID_INPUT_SYNTAX");    
-        pushBack(EOS);
-        */
             return left; 
 	    }
     }
@@ -507,7 +506,7 @@ System.out.println("  term -->");
         Node left; 
         Tok t = str.nextToken(); 
         if (t == Tok.MINUS) {
-            left = new OpNode(Op.Times, new NumNode(-1), factor() ); 
+            left = new OpNode(Op.Times, new NumNode(-1), power() ); 
         }
         else {
             pushBack("t", t);
@@ -515,7 +514,7 @@ System.out.println("  term -->");
         }
 		Tok token = str.nextToken();
 		if (token == Tok.TIMES) return new OpNode(Op.Times, left, term());
-		if (token == Tok.DIVIDE) return new OpNode(Op.Divide, left, term());
+		else if (token == Tok.DIVIDE) return new OpNode(Op.Divide, left, term());
 		else {
 			pushBack("t", token); 
 			return left;
@@ -541,11 +540,6 @@ System.out.println("    power-->");
 		}
 	}
 	
-	/**
-	 * 
-	 * @return A variable, number, or function node.
-	 * @throws Exception
-	 */
 	public Node factor() throws Exception { 
 System.out.println("      factor -->");
         Tok token = str.nextToken();
@@ -638,20 +632,45 @@ System.out.println("      factor -->");
         return null; 
 	}	
 
-	public static void main(String[] args) { 
-	    
-        if (args.length < 1) System.out.println("ERROR: FUNCTION[S]_EXPECTED");
-        for (String s: args) { 
-
-            Tokenizer T = new Tokenizer(s);
-            Parser P = new Parser(T);
-            P.root.print();
-         }	
-    
+	public static String genRandomTest(int length) throws Exception { 
+        String str = "";    
+        for (int i=0; i<length; i++) { 
+            int pos = (int) (chars.length * Math.random());
+            str += chars[pos];
+        }
+        return str;
     }
 
-            
-            /* while (true) {
+    public static void main(String[] args) { 
+            /* 
+            if (args.length < 2) {
+                System.out.println("ERROR: expecting 2 arguments");
+                return;
+            }	        
+            int num = Integer.parseInt(args[0]);
+            int len = Integer.parseInt(args[1]); 
+            for (int i=0; i<num; i++) { 
+                String s = "";
+                try { 
+                    s = genRandomTest(len);
+                    System.out.println(s);
+                    Tokenizer T = new Tokenizer(s);
+                    Parser P = new Parser(T);
+                    P.root.print(); 
+                    
+                }       
+                catch(Exception e) { 
+                    e.printStackTrace();
+                }
+           }
+           */
+           String s = args[0];
+           Tokenizer T = new Tokenizer(s);
+           Parser P = new Parser(T);
+           P.root.print(); 
+         	
+            /* 
+            while (true) {
             Tok t = T.nextToken(); 
 			//if (Character.isWhitespace(0)) System.out.println("the null character is a white space");
 			System.out.print(t);
@@ -662,16 +681,18 @@ System.out.println("      factor -->");
                 break; 
             }
                 System.out.println();
-            }  */
+            }
+            */
 
-        /*try {
-			HashMap<String, Double> argList = new HashMap<String, Double>();
-			argList.put( "x", 2.0 );
-			argList.put( "n", 0.0);
+            /*
+            try {
+			    HashMap<String, Double> argList = new HashMap<String, Double>();
+			    argList.put( "x", 2.0 );
+			    argList.put( "n", 0.0);
 			System.out.println(P.root.eval( argList ));
-		} catch (Exception e) {
-			e.printStackTrace();
-		} 
-	} */
-		
-}
+		    } catch (Exception e) {
+			    e.printStackTrace();
+	 	    } 
+            */
+    }
+} 
