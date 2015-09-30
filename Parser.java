@@ -11,7 +11,7 @@ enum Tok {
 }
 
 enum Func { 
-	Sin, Cos, Tan, Exp, Sqrt, Log, Undef, Factorial, Arcsin, Arccos, Arctan;	
+	Sin, Cos, Tan, Exp, Sqrt, Log, Ln, Undef, Factorial, Arcsin, Arccos, Arctan;	
 }
 
 enum Op { 
@@ -85,6 +85,7 @@ class Tokenizer {
 		if (s.equals("tan")) return true;
 		if (s.equals("sqrt")) return true;
 		if (s.equals("log")) return true; 
+        if (s.equals("ln")) return true;
 		if (s.equals("factorial")) return true;
 		if (s.equals("arcsin")) return true;
         if (s.equals("arccos")) return true;
@@ -105,6 +106,7 @@ class Tokenizer {
 		if (s.equals("exp")) return Func.Exp;
 		if (s.equals("sqrt")) return Func.Sqrt;
 		if (s.equals("log")) return Func.Log;
+        if (s.equals("ln")) return Func.Ln;
 		if (s.equals("factorial")) return Func.Factorial;
         if (s.equals("arcsin")) return Func.Arcsin;
         if (s.equals("arccos")) return Func.Arccos;
@@ -368,6 +370,7 @@ class FuncNode extends Node {
 		case Exp: return Math.pow( Math.E, d );
 		case Sqrt: return Math.sqrt( d );
 		case Log: return Math.log10( d );			
+        case Ln: return Math.log( d );
 		case Arcsin: return Math.asin( d );
         case Arccos: return Math.acos( d );
         case Arctan: return Math.atan( d );
