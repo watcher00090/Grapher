@@ -94,30 +94,6 @@ class GraphController implements WindowListener, KeyListener, MouseMotionListene
             }
         }
     }
-        public static int numVisibleDigits(double d) {
-            int c = 0;
-            double d1 = d;
-            if (Math.abs(d1) < 1) { 
-                while (Math.abs(d1) < 1) {
-                    d1 = d1*10;
-                    c++;
-                }
-                
-            }
-            else { 
-                int i = (int) d;
-                while (i != 0) {
-                    i = i/10;
-                    c++;
-                }
-            }
-            if (c >= 4) {
-                c = Math.min(4, c);
-                if (Math.abs(d) < 1) c++; 
-            }
-            if (d < 0) c++;
-            return c-1+3;    
-        }
     
         public void mouseMoved(MouseEvent e) {
 
@@ -225,12 +201,12 @@ public class OldGraph extends Canvas {
     ArrayList<Integer> asymptoteypoint1 = new ArrayList<Integer>();
     ArrayList<Integer> asymptoteypoint2 = new ArrayList<Integer>();
 
-    static int HORIZONTAL_BORDER_OFFSET = 15;
-    static int VERTICAL_BORDER_OFFSET = 15;
+    static int HORIZONTAL_BORDER_OFFSET = 20;
+    static int VERTICAL_BORDER_OFFSET = 20;
 
     static int HORIZONTAL_AXIS_MIN_LABEL_HORIZONTAL_OFFSET = 10;
     static int HORIZONTAL_AXIS_MAX_LABEL_HORIZONTAL_OFFSET = 15;
-    static int HORIZONTAL_AXIS_LABELS_VERTICAL_OFFSET = 10;
+    static int HORIZONTAL_AXIS_LABELS_VERTICAL_OFFSET = 17;
 
     static int VERTICAL_AXIS_MIN_LABEL_VERTICAL_OFFSET = 5;
     static int VERTICAL_AXIS_MAX_LABEL_VERTICAL_OFFSET = 5;
@@ -452,24 +428,6 @@ public class OldGraph extends Canvas {
                     2*targetRadius, 2*targetRadius);
             }
 
-            int hx1 = toGx(xmin);
-            int hx2 = toGx(xmax);
-            int horizaxisy = HEIGHT - VERTICAL_BORDER_OFFSET;
-            int xaxisy = toGy(0);
-
-            if (VERTICAL_BORDER_OFFSET <= xaxisy && xaxisy <= horizaxisy) horizaxisy = xaxisy;
-
-            g.drawLine(hx1, horizaxisy, hx2, horizaxisy);
-
-            for (double d = 0.0; d >= xmin ; d -= xincrement   ) {
-                    g.drawLine(toGx(d), horizaxisy - TICKMARK_SIZE/2,
-                               toGx(d), horizaxisy + TICKMARK_SIZE/2 );
-            }
-
-            for (double d = 0.0; d <= xmax ; d += xincrement   ) {
-                    g.drawLine(toGx(d), horizaxisy - TICKMARK_SIZE/2,
-                               toGx(d), horizaxisy + TICKMARK_SIZE/2 );
-            }
 
             NumberFormat nf = NumberFormat.getInstance();
 
@@ -478,72 +436,98 @@ public class OldGraph extends Canvas {
             String yminstring = nf.format(ymin);
             String ymaxstring = nf.format(ymax);
 
-            if ( HORIZONTAL_AXIS_LABELS_VERTICAL_OFFSET + 11 >= horizaxisy ) {  
-              System.out.println("SCORE!"); 
-                g.drawString(
-                xminstring, hx1 + HORIZONTAL_AXIS_MIN_LABEL_HORIZONTAL_OFFSET, 
-                horizaxisy + HORIZONTAL_AXIS_LABELS_VERTICAL_OFFSET + 11 );
-
-                g.drawString(
-                xmaxstring, hx2 -  HORIZONTAL_AXIS_MAX_LABEL_HORIZONTAL_OFFSET - 8 * xmaxstring.length(),  
-                horizaxisy + HORIZONTAL_AXIS_LABELS_VERTICAL_OFFSET + 11 );
+            int hx1 = toGx(xmin);
+            int hx2 = toGx(xmax);
+            int horizaxisy; 
             
-            }
-            else { 
-                g.drawString(
-                xminstring, hx1 + HORIZONTAL_AXIS_MIN_LABEL_HORIZONTAL_OFFSET, 
-                horizaxisy - HORIZONTAL_AXIS_LABELS_VERTICAL_OFFSET );
-
-                g.drawString(
-                xmaxstring, hx2 -  HORIZONTAL_AXIS_MAX_LABEL_HORIZONTAL_OFFSET - 8 * xmaxstring.length(),  
-                horizaxisy - HORIZONTAL_AXIS_LABELS_VERTICAL_OFFSET );
-            }
-            
+            int vertaxisx;
             int vy1 = toGy(ymin);
             int vy2 = toGy(ymax);
-            int vertaxisx = HORIZONTAL_BORDER_OFFSET;
+
+            int xaxisy = toGy(0);
             int yaxisx = toGx(0);
 
-            if (vertaxisx < yaxisx && yaxisx <= WIDTH - HORIZONTAL_BORDER_OFFSET) {
-                vertaxisx = yaxisx;
+            if ( 0 <= xaxisy && xaxisy <= HEIGHT ) { 
+                horizaxisy = xaxisy;
+                g.drawLine(hx1, horizaxisy, hx2, horizaxisy); 
+            }
+            
+            else horizaxisy = HEIGHT - VERTICAL_BORDER_OFFSET;
+            
+            if ( 0 <= yaxisx && yaxisx <= WIDTH) { 
+                vertaxisx = yaxisx; 
+                g.drawLine(vertaxisx, vy1, vertaxisx, vy2);
+            }
+            
+            else vertaxisx = HORIZONTAL_BORDER_OFFSET; 
+
+            for (double d = 0.0; d >= xmin ; d -= xincrement   ) {
+                    g.drawLine(toGx(d), horizaxisy - TICKMARK_SIZE/2,
+                           toGx(d), horizaxisy + TICKMARK_SIZE/2 );
             }
 
-            g.drawLine(vertaxisx, vy1, vertaxisx, vy2);
+            for (double d = 0.0; d <= xmax ; d += xincrement   ) {
+                    g.drawLine(toGx(d), horizaxisy - TICKMARK_SIZE/2,
+                           toGx(d), horizaxisy + TICKMARK_SIZE/2 );
+            }
 
             for (double d = 0.0; d >= ymin ; d -= yincrement   ) {
-                    g.drawLine(vertaxisx - TICKMARK_SIZE/2, toGy(d),
-                               vertaxisx + TICKMARK_SIZE/2, toGy(d) );
-
+                g.drawLine(vertaxisx - TICKMARK_SIZE/2, toGy(d),
+                       vertaxisx + TICKMARK_SIZE/2, toGy(d) );
             }
 
             for (double d = 0.0; d <= ymax ; d += yincrement   ) {
-                    g.drawLine(vertaxisx - TICKMARK_SIZE/2, toGy(d),
-                               vertaxisx + TICKMARK_SIZE/2, toGy(d) );
+                g.drawLine(vertaxisx - TICKMARK_SIZE/2, toGy(d),
+                       vertaxisx + TICKMARK_SIZE/2, toGy(d) );
+            }
+                
+            if ( HORIZONTAL_AXIS_LABELS_VERTICAL_OFFSET + 11 >= horizaxisy ) {  
+                g.drawString(
+                xminstring, hx1 + HORIZONTAL_AXIS_MIN_LABEL_HORIZONTAL_OFFSET, 
+                horizaxisy + HORIZONTAL_AXIS_LABELS_VERTICAL_OFFSET + 11 );
+
+                g.drawString(
+                xmaxstring, hx2 -  HORIZONTAL_AXIS_MAX_LABEL_HORIZONTAL_OFFSET - 8 * xmaxstring.length(),  
+                horizaxisy + HORIZONTAL_AXIS_LABELS_VERTICAL_OFFSET + 11 );
             }
 
-            if ( yminstring.length() * 8 + VERTICAL_AXIS_LABELS_HORIZONTAL_OFFSET >= WIDTH - vertaxisx || 
-                 ymaxstring.length() * 8 + VERTICAL_AXIS_LABELS_HORIZONTAL_OFFSET >= WIDTH - vertaxisx)  { 
-
-                g.drawString(
-                yminstring, vertaxisx - VERTICAL_AXIS_LABELS_HORIZONTAL_OFFSET - 8 * yminstring.length(), 
-                vy1 - VERTICAL_AXIS_MIN_LABEL_VERTICAL_OFFSET);
-
-                g.drawString(
-                ymaxstring,  vertaxisx - VERTICAL_AXIS_LABELS_HORIZONTAL_OFFSET - 8 * ymaxstring.length() ,
-                vy2 + VERTICAL_AXIS_MAX_LABEL_VERTICAL_OFFSET);
-            
-            } 
             else { 
                 g.drawString(
-                yminstring, vertaxisx + VERTICAL_AXIS_LABELS_HORIZONTAL_OFFSET, 
-                vy1 - VERTICAL_AXIS_MIN_LABEL_VERTICAL_OFFSET);
+                xminstring, hx1 + HORIZONTAL_AXIS_MIN_LABEL_HORIZONTAL_OFFSET, 
+                horizaxisy + HORIZONTAL_AXIS_LABELS_VERTICAL_OFFSET );
 
                 g.drawString(
-                ymaxstring,  vertaxisx + VERTICAL_AXIS_LABELS_HORIZONTAL_OFFSET, 
-                vy2 + VERTICAL_AXIS_MAX_LABEL_VERTICAL_OFFSET);
-            
+                xmaxstring, hx2 -  HORIZONTAL_AXIS_MAX_LABEL_HORIZONTAL_OFFSET - 8 * xmaxstring.length(),  
+                horizaxisy + HORIZONTAL_AXIS_LABELS_VERTICAL_OFFSET );
             }
-        }
+        
+/*
+                if ( yminstring.length() * 8 + VERTICAL_AXIS_LABELS_HORIZONTAL_OFFSET >= WIDTH - vertaxisx || 
+                 ymaxstring.length() * 8 + VERTICAL_AXIS_LABELS_HORIZONTAL_OFFSET >= WIDTH - vertaxisx)  { 
+
+                    g.drawString(
+                    yminstring, vertaxisx - VERTICAL_AXIS_LABELS_HORIZONTAL_OFFSET - 8 * yminstring.length(), 
+                    vy1 - VERTICAL_AXIS_MIN_LABEL_VERTICAL_OFFSET);
+
+                    g.drawString(
+                    ymaxstring,  vertaxisx - VERTICAL_AXIS_LABELS_HORIZONTAL_OFFSET - 8 * ymaxstring.length(),
+                    vy2 + VERTICAL_AXIS_MAX_LABEL_VERTICAL_OFFSET);
+            
+                } 
+
+                else { 
+                    g.drawString(
+                    yminstring, vertaxisx + VERTICAL_AXIS_LABELS_HORIZONTAL_OFFSET, 
+                    vy1 - VERTICAL_AXIS_MIN_LABEL_VERTICAL_OFFSET);
+
+                    g.drawString(
+                    ymaxstring,  vertaxisx + VERTICAL_AXIS_LABELS_HORIZONTAL_OFFSET, 
+                    vy2 + VERTICAL_AXIS_MAX_LABEL_VERTICAL_OFFSET);
+            
+                }
+                */
+            }
+        
     }
 
     public int toGx(double px) {
