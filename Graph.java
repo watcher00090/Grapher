@@ -102,7 +102,7 @@ class GraphController implements WindowListener, KeyListener, MouseMotionListene
 
             if (graph.func != null) {
 
-                double px = graph.toPx(mx);
+                double rx = graph.renderXtoMathematicalX( graph.screenXtoRenderX(mx) );
                 double py = Double.MAX_VALUE;
 
                 try {
@@ -189,8 +189,8 @@ public class Graph extends Canvas {
     double[] ypoints;
     double xrange;
     double yrange;
-    double xscale;
-    double yscale;
+    double xscreenrange; 
+    double yscreenrange;
     double cx;
     double cy;
     double xincrement;
@@ -408,7 +408,7 @@ public class Graph extends Canvas {
        if(func !=null) {
 
  	    FWIDTH = this.getWidth();
-	    FHEIGHT = this.getHeight()
+	    FHEIGHT = this.getHeight();
             RWIDTH = FWIDTH - 2 * HORIZONTAL_BORDER_OFFSET;
             RHEIGHT = FHEIGHT - 2 * VERTICAL_BORDER_OFFSET;
 	    xrange = Math.abs(xmax - xmin);
@@ -536,7 +536,7 @@ public class Graph extends Canvas {
     }
 
     public double screenXToRenderX(int sx) {
-        return (int) ( RWEIGHT/2 + HORIZONTAL_BORDER_OFFSET + (sx - FWIDTH/2) (RWIDTH / xscreenrange) );
+        return (int) ( RWIDTH/2 + HORIZONTAL_BORDER_OFFSET + (sx - FWIDTH/2) *  (RWIDTH / xscreenrange) );
     }
 
     public int mathematicalYtoRenderY(double py) {
@@ -547,7 +547,7 @@ public class Graph extends Canvas {
     }
 
     public double screenYToRenderY(int sy) {
-        return (int) ( RHEIGHT/2 + VERTICAL_BORDER_OFFSET + (FHEIGHT/2 - sy ) (RHEIGHT / yscreenrange) );
+        return (int) ( RHEIGHT/2 + VERTICAL_BORDER_OFFSET + (FHEIGHT/2 - sy ) * (RHEIGHT / yscreenrange) );
     }
 
     public static double sign(double d) {
