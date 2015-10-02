@@ -116,10 +116,10 @@ class GraphController implements WindowListener, KeyListener, MouseMotionListene
 //System.out.println("mx="+mx+" my="+my);
 //System.out.println("px="+px+" py="+py+"\n");
 
-//System.out.println( graph.toGx(graph.toPx(mx)) + "\n" );
-//System.out.println( graph.toGy(graph.toPy(my)) );
+//System.out.println( graph.mathematicalXToRenderX(graph.toPx(mx)) + "\n" );
+//System.out.println( graph.mathematicalYToRenderY(graph.toPy(my)) );
 
-                double diff =  Math.abs( graph.toGy(py) - my );
+                double diff =  Math.abs( graph.mathematicalYToRenderY(py) - my );
 
 //System.out.println("diff="+diff+"\n");
 
@@ -128,7 +128,7 @@ class GraphController implements WindowListener, KeyListener, MouseMotionListene
 //System.out.println("score!");
 
                     graph.pointhighlighted = true;
-                    graph.updateTarget( graph.toGx(px), graph.toGy(py) );
+                    graph.updateTarget( graph.mathematicalXToRenderX(px), graph.mathematicalYToRenderY(py) );
                 }
 
                 else {
@@ -169,8 +169,10 @@ public class Graph extends Canvas {
     Node func;
     HashMap<String, Double> argList;
 
-    int WIDTH;
-    int HEIGHT;
+    int FWIDTH;
+    int FHEIGHT;
+    int RWIDTH; 
+    int RHEIGHT;
 
     boolean pointhighlighted = false;
 
@@ -405,10 +407,14 @@ public class Graph extends Canvas {
 
        if(func !=null) {
 
-            WIDTH = this.getWidth() - 2 * HORIZONTAL_BORDER_OFFSET;
-            HEIGHT = this.getHeight() - 2 * VERTICAL_BORDER_OFFSET;
-            xscale = WIDTH / xrange;
-            yscale = HEIGHT / yrange;
+ 	    FWIDTH = this.getWidth();
+	    FHEIGHT = this.getHeight()
+            RWIDTH = FWIDTH - 2 * HORIZONTAL_BORDER_OFFSET;
+            RHEIGHT = FHEIGHT - 2 * VERTICAL_BORDER_OFFSET;
+	    xrange = Math.abs(xmax - xmin);
+	    yrange = Math.abs(ymax - ymin);
+	    xscreenrange = Math.abs(FWIDTH - 0);
+            yscreenrange = Math.abs(FHEIGHT - 0);
 
 //System.out.println("inner repaint is called");
 
@@ -416,8 +422,8 @@ public class Graph extends Canvas {
             int[] ygraphicspoints = new int[n];
 
             for (int i=0; i<n; i++) {
-                xgraphicspoints[i] = toGx(xpoints[i]);
-                ygraphicspoints[i] = toGy(ypoints[i]);
+                xgraphicspoints[i] = mathematicalXToRenderX(xpoints[i]);
+                ygraphicspoints[i] = mathematicalYToRenderY(ypoints[i]);
             }
 
             g.setColor(Color.black);
@@ -435,44 +441,44 @@ public class Graph extends Canvas {
             String yminstring = nf.format(ymin);
             String ymaxstring = nf.format(ymax);
 
-            int xaxisy = toGy(0);
+            int xaxisy = mathematicalYToRenderY(0);
             int horizticky = xaxisy; 
 
             System.out.println("xaxisy="+xaxisy);
 
             if ( VERTICAL_BORDER_OFFSET <= xaxisy && xaxisy <= HEIGHT + VERTICAL_BORDER_OFFSET) {
-                g.drawLine(toGx(xmin), xaxisy, toGx(xmax), xaxisy); 
+                g.drawLine(mathematicalXToRenderX(xmin), xaxisy, mathematicalXToRenderX(xmax), xaxisy); 
             }
             else if ( xaxisy < VERTICAL_BORDER_OFFSET ) horizticky = VERTICAL_BORDER_OFFSET; 
             else horizticky = HEIGHT + VERTICAL_BORDER_OFFSET; 
             
             for (double d = 0.0; d >= xmin ; d -= xincrement   ) {
-                    g.drawLine(toGx(d), horizticky - TICKMARK_SIZE/2,
-                           toGx(d), horizticky + TICKMARK_SIZE/2 );
+                    g.drawLine(mathematicalXToRenderX(d), horizticky - TICKMARK_SIZE/2,
+                           mathematicalXToRenderX(d), horizticky + TICKMARK_SIZE/2 );
             }
 
             for (double d = 0.0; d <= xmax ; d += xincrement   ) {
-                    g.drawLine(toGx(d), horizticky - TICKMARK_SIZE/2,
-                           toGx(d), horizticky + TICKMARK_SIZE/2 );
+                    g.drawLine(mathematicalXToRenderX(d), horizticky - TICKMARK_SIZE/2,
+                           mathematicalXToRenderX(d), horizticky + TICKMARK_SIZE/2 );
             }
 
-            int yaxisx = toGx(0);
+            int yaxisx = mathematicalXToRenderX(0);
             int verttickx = yaxisx;
 
             if ( HORIZONTAL_BORDER_OFFSET <= yaxisx && yaxisx <= WIDTH + HORIZONTAL_BORDER_OFFSET ) {
-                g.drawLine(yaxisx, toGy(ymin), yaxisx, toGy(ymax));
+                g.drawLine(yaxisx, mathematicalYToRenderY(ymin), yaxisx, mathematicalYToRenderY(ymax));
             }
             else if ( yaxisx < HORIZONTAL_BORDER_OFFSET) verttickx = HORIZONTAL_BORDER_OFFSET;
             else verttickx = WIDTH + HORIZONTAL_BORDER_OFFSET; 
 
             for (double d = 0.0; d >= ymin ; d -= yincrement  ) {
-                g.drawLine( verttickx- TICKMARK_SIZE/2, toGy(d),
-                       verttickx + TICKMARK_SIZE/2, toGy(d) );
+                g.drawLine( verttickx- TICKMARK_SIZE/2, mathematicalYToRenderY(d),
+                       verttickx + TICKMARK_SIZE/2, mathematicalYToRenderY(d) );
             }
     
             for (double d = 0.0; d <= ymax ; d += yincrement   ) {
-                g.drawLine(verttickx - TICKMARK_SIZE/2, toGy(d),
-                       verttickx + TICKMARK_SIZE/2, toGy(d) );
+                g.drawLine(verttickx - TICKMARK_SIZE/2, mathematicalYToRenderY(d),
+                       verttickx + TICKMARK_SIZE/2, mathematicalYToRenderY(d) );
             }
             /*    
             if ( HORIZONTAL_AXIS_LABELS_VERTICAL_OFFSET + 11 >= horizaxisy ) {  
@@ -523,26 +529,25 @@ public class Graph extends Canvas {
             }
        } 
     
-
-    public int toGx(double px) {
-        int gx = (int) (WIDTH/2 + HORIZONTAL_BORDER_OFFSET + (px - cx) * xscale) ;
+    public int mathematicalXToRenderX(double px) {
+       	int gx = (int) (WIDTH/2 + HORIZONTAL_BORDER_OFFSET + (px - cx) * (RWIDTH / xrange)) ;
 //System.out.println(gx);
         return gx;
     }
 
-    public double toPx(int gx) {
-        return cx + (gx - WIDTH/2 - HORIZONTAL_BORDER_OFFSET) / xscale;
+    public double screenXToRenderX(int sx) {
+        return (int) ( RWEIGHT/2 + HORIZONTAL_BORDER_OFFSET + (sx - FWIDTH/2) (RWIDTH / xscreenrange) );
     }
 
-    public int toGy(double py) {
+    public int mathematicalYtoRenderY(double py) {
 // System.out.println("HEIGHT="+HEIGHT+"\ncy="+cy+"\npy="+py+"\nyscale="+yscale+"\n");
-        int gy = (int) (HEIGHT/2 + VERTICAL_BORDER_OFFSET + (cy - py) * yscale);
+        int gy = (int) (RHEIGHT/2 + VERTICAL_BORDER_OFFSET + (cy - py) * (RHEIGHT / yrange) );
 //System.out.println(gy);
         return gy;
     }
 
-    public double toPy(int gy) {
-        return cy - (gy - HEIGHT/2 - VERTICAL_BORDER_OFFSET) / yscale;
+    public double screenYToRenderY(int sy) {
+        return (int) ( RHEIGHT/2 + VERTICAL_BORDER_OFFSET + (FHEIGHT/2 - sy ) (RHEIGHT / yscreenrange) );
     }
 
     public static double sign(double d) {
