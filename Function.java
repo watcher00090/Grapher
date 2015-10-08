@@ -93,12 +93,6 @@ class Tokenizer {
         return false;
 	}	
 
-	/**
-	 * 
-	 * @param s, the input String
-	 * @return the Function enum type of String s. If s isn't a function, throw an exception.
-	 * @throws Exception
-	 */
 	Func getFunc(String s) throws Exception { 
 		if (s.equals("sin")) return Func.Sin;
 		if (s.equals("cos")) return Func.Cos;
@@ -115,7 +109,7 @@ class Tokenizer {
 	}
 
     public Tok nextToken() { 
-        Tok t = nextTokenPrime();
+        Tok t = nextTokenContinued();
         //System.out.println(t);
         return t;
     }
@@ -131,7 +125,7 @@ class Tokenizer {
 	  * 
 	  * @return the next token in the input String.
 	  */
-	public Tok nextTokenPrime() { 
+	public Tok nextTokenContinued() { 
 
 		if (backToken !=Tok.UNDEF) {	
 			Tok result = backToken;  	
@@ -508,10 +502,7 @@ class Parser {
     }
 	
 
-	/**
-	 * Consumes everything up to a times or divide, as according to the grammar.
-	 * @return An operator node with operator type times or divide, or a node that is a power()
-	 */
+	 // Consumes everything up to a times or divide, as according to the grammar.
 	public Node term() throws Exception { 
 //System.out.println("  term -->");
         Node left; 
@@ -560,7 +551,7 @@ class Parser {
 			String funcName = str.strVal;
 			if (str.nextToken() != Tok.LPAR)
 				throw new Exception( "INVALID_FUNCTION_SYNTAX: expecting left paren");
-			Node argExpr = expr();	//consume everything up to the right-parenthesis, which was pushed back in expr().
+			Node argExpr = expr();	//consumes everything up to the right-parenthesis, which was pushed back in expr().
 			if (str.nextToken() != Tok.RPAR) 
 				throw new Exception("INVALID_FUNCTION_SYNTAX: expecting right paren");
 			
