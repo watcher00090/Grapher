@@ -1,19 +1,23 @@
-import java.awt.event.ComponentListener;
 import java.text.NumberFormat;
-import java.awt.event.ComponentEvent;
 import java.awt.*;
-import java.awt.event.MouseMotionListener;
+import java.awt.Color;
+import java.awt.image.BufferStrategy;
+import java.awt.event.ComponentEvent;
+import java.awt.event.ComponentListener;
 import java.awt.event.MouseEvent;
+import java.awt.event.MouseMotionListener;
+import java.awt.event.MouseListener;
 import java.awt.event.KeyEvent;
 import java.awt.event.KeyListener;
-import java.awt.event.WindowListener;
+import java.awt.event.ItemEvent;
+import java.awt.event.ItemListener;
 import java.awt.event.WindowEvent;
 import java.awt.event.WindowListener;
 import java.util.ArrayList;
 import java.util.HashMap;
 
-
-class GraphController implements ComponentListener, WindowListener, KeyListener, MouseMotionListener {
+class GraphController implements ComponentListener, WindowListener, KeyListener, 
+                                ItemListener, MouseListener, MouseMotionListener {
 
     Graph graph;
     TextField inputbar;
@@ -24,17 +28,23 @@ class GraphController implements ComponentListener, WindowListener, KeyListener,
     TextField xincrementbar;
     TextField yincrementbar;
 
-    String funcString;
+    String funcString = "";
     Function func;
+    Frame frame;
 
-    static double MOUSE_CURVE_PROXIMITY_FACTOR = 0.25; 
+    static double MOUSE_CURVE_PROXIMITY_FACTOR = 10; //pixels on screen 
+    static double DRAG_SENSITIVITY = 1;
 
     Point target = new Point();
 
-    GraphController(Graph graph, TextField inputbar,TextField xminbar,
+    int mx1;
+    int my1;
+
+    GraphController(Graph graph, Frame frame, TextField inputbar,TextField xminbar,
                      TextField xmaxbar, TextField yminbar, TextField ymaxbar,
                      TextField xincrementbar, TextField yincrementbar) {
         this.graph = graph;
+        this.frame = frame;
         this.inputbar = inputbar;
         this.xminbar = xminbar;
         this.xmaxbar = xmaxbar;
@@ -54,35 +64,25 @@ class GraphController implements ComponentListener, WindowListener, KeyListener,
     }
 
     public void componentResized(ComponentEvent e) { 
-        if (e.getSource().equals(graph)) {
+        if (e.getSource().equals(frame)) {
             graph.WIDTH = graph.getWidth();
             graph.HEIGHT = graph.getHeight();
             graph.RWIDTH = graph.WIDTH - 2 * graph.HORIZONTAL_BORDER_OFFSET;
             graph.RHEIGHT = graph.HEIGHT - 2 * graph.VERTICAL_BORDER_OFFSET;
         }
+        graph.render();
     }
 
     public void keyPressed(KeyEvent e) {
 
-        Object s = e.getSource();
-        char c = e.getKeyChar();
+        if (e.getKeyChar() == KeyEvent.VK_ENTER) {
 
-        if (c == KeyEvent.VK_ENTER) {
-
-            if ( !(inputbar.getText() == ""||
-                xminbar.getText() == "" ||
-                xmaxbar.getText() == "" ||
-                yminbar.getText() == "" ||
-                ymaxbar.getText() == "" ||
-                xincrementbar.getText() == "" ||
-                yincrementbar.getText() == "") ) {
-
-                if ( !(funcString.equals(inputbar.getText())) ){
-                    Tokenizer T = new Tokenizer(inputbar.getText());
-                    Parser P = new Parser(T);
-                    func = new Function(inputbar.getText());
-                    funcString = inputbar.getText();
-                }
+            if ( !(xminbar.getText().equals("") ||
+                xmaxbar.getText().equals("") ||
+                yminbar.getText().equals("") ||
+                ymaxbar.getText().equals("") || 
+                xincrementbar.getText().equals("") ||
+                yincrementbar.getText().equals("") ) ) { 
 
                 double xmin = Double.parseDouble(xminbar.getText());
                 double xmax = Double.parseDouble(xmaxbar.getText());
@@ -91,47 +91,94 @@ class GraphController implements ComponentListener, WindowListener, KeyListener,
                 double xincrement = Double.parseDouble(xincrementbar.getText());
                 double yincrement = Double.parseDouble(yincrementbar.getText());
 
-                graph.update(func, xmin, xmax, ymin, ymax, xincrement, yincrement);
+                graph.updateViewingWindow(xmin, xmax, ymin, ymax);
+                graph.setXIncrement(xincrement);
+                graph.setYIncrement(yincrement);
             }
+            
+            if ( inputbar.getText().equals("") ) graph.setFunction(null);
+            else { 
+                if ( !(funcString.equals(inputbar.getText())) ){
+                    graph.setFunction(new Function(inputbar.getText()));
+                    funcString = inputbar.getText();
+                }
+                graph.computePoints();
+            }
+
+            graph.render();
+            
         }
     }
    
-        public void mouseMoved(MouseEvent e) {
-             
-            int cx = e.getX();
-            int cy = e.getY();
+    public void mouseMoved(MouseEvent e) {
+         
+        int mx = e.getX();
+        int my = e.getY();
 
-            if (graph.func != null) {
+System.out.println("mx="+mx+", my="+my);
 
-                double px = graph.renderXToMathematicalX(cx);
-                double py = Double.MAX_VALUE;
-
-                try {
-                    py = graph.func.value(px);
-                }
-                catch(Exception ex) { ex. printStackTrace(); }
-
-                double diff =  Math.abs( py - graph.renderYToMathematicalY(cy)  );
-
-                if ( diff < MOUSE_CURVE_PROXIMITY_FACTOR ) {
-                    graph.pointhighlighted = true;
-                    graph.updateTarget( graph.mathematicalXToRenderX(px), graph.mathematicalYToRenderY(py) );
-                }
-                else { graph.pointhighlighted = false; }
-                graph.repaint();
+        if (graph.func != null) {
+            double px = graph.renderXToMathematicalX(mx);
+            double py = Double.MAX_VALUE;
+            try {
+                py = graph.func.value(px);
             }
+            catch(Exception ex) { ex. printStackTrace(); }
+
+            double diff = Math.abs( graph.mathematicalYToRenderY(py) - my );
+
+            if ( diff < MOUSE_CURVE_PROXIMITY_FACTOR ) {
+                graph.hoveringovercurve = true;
+                graph.setLabeledPointCoordinates( graph.mathematicalXToRenderX(px), graph.mathematicalYToRenderY(py) );
+            }
+            else { graph.hoveringovercurve = false; }
+        }
+        graph.render();
+    }
+    
+    public void mousePressed(MouseEvent e) {
+         mx1 = e.getX();
+         my1 = e.getY();
+    }
+
+    public void mouseDragged(MouseEvent e) {
+        int mx2 = e.getX();
+        int my2 = e.getY();
+        double xshift = DRAG_SENSITIVITY * (graph.renderXToMathematicalX(mx1) - graph.renderXToMathematicalX(mx2));
+        double yshift = DRAG_SENSITIVITY * (graph.renderYToMathematicalY(my1) - graph.renderYToMathematicalY(my2));
+        mx1 = mx2;
+        my1 = my2;
+        graph.updateViewingWindow(xshift, yshift);
+        graph.setLabeledPointCoordinates(mx2, my2);
+        if (graph.func != null) graph.computePoints();
+        graph.render();
+    }
+
+    public void itemStateChanged(ItemEvent e) {
+        int state = e.getStateChange();
+        if (state == ItemEvent.SELECTED) {
+        System.out.println("checkbox checked!");
+            graph.setTickLabelsShowing(true); 
+        }
+        else {
+            graph.setTickLabelsShowing(false); 
+            System.out.println("checkbox unchecked");
+        }
+        graph.render();
     }
 
     public void windowClosing(WindowEvent e) {
+        frame.dispose();
         System.exit(0);
     }
 
     //unimplemented methods
-    public void mouseDragged(MouseEvent e) {}
-
     public void keyTyped(KeyEvent e) {}
     public void keyReleased(KeyEvent e) {}
-
+    public void mouseClicked(MouseEvent e) {}
+    public void mouseEntered(MouseEvent e) {}
+    public void mouseExited(MouseEvent e) {}
+    public void mouseReleased(MouseEvent e) {}
     public void windowActivated(WindowEvent e) {}
     public void windowClosed(WindowEvent e) {}
     public void windowDeactivated(WindowEvent e) {}
@@ -145,96 +192,90 @@ class GraphController implements ComponentListener, WindowListener, KeyListener,
 
 public class Graph extends Canvas {
 
-    Frame frame;
-    Container container;
+    Frame frame = new Frame();
+    Container container = new Container();
+    TextField inputbar = new TextField();
+    TextField xminbar = new TextField(); 
+    TextField xmaxbar = new TextField();
+    TextField yminbar = new TextField();
+    TextField ymaxbar = new TextField();
+    TextField xincrementbar = new TextField();
+    TextField yincrementbar = new TextField();
+    Label inputbarlabel = new Label();
+    Label xminbarlabel = new Label();
+    Label xmaxbarlabel = new Label();
+    Label yminbarlabel = new Label();
+    Label ymaxbarlabel = new Label();
+    Label xincrementbarlabel = new Label();
+    Label yincrementbarlabel = new Label();
+    Label tickmarklabelscheckboxlabel = new Label();
+    Checkbox tickmarklabelscheckbox = new Checkbox();
+
     Function func;
     HashMap<String, Double> argList;
+    BufferStrategy strategy;
 
-    int WIDTH;
-    int HEIGHT;
-    int RWIDTH;
-    int RHEIGHT;
+    int WIDTH; //canvas width
+    int HEIGHT; //canvas height
+    int RWIDTH; //width of render area
+    int RHEIGHT; //height of render area
 
-    boolean pointhighlighted = false;
-
-    double xmax;
-    double xmin;
-    double ymax;
-    double ymin;
-
+    boolean hoveringovercurve = false;
+    boolean ticklabelsenabled = false;
     int targetRadius = 5;
-    int tx;
-    int ty;
+    int lx;
+    int ly;
 
+    //initialized prior to the input of a function so that the axes can be drawn
+    double xmin = -5; 
+    double xmax = 5;
+    double ymin = -5;
+    double ymax = 5;
     double[] xpoints;
     double[] ypoints;
-    double xrange;
-    double yrange;
-    double xscreenrange; 
-    double yscreenrange;
-    double cx;
-    double cy;
-    double xincrement;
-    double yincrement;
+    double xrange = Math.abs(xmax - xmin);
+    double yrange = Math.abs(ymax - ymin);
+    double cx = 0;
+    double cy = 0;
+    double xincrement = 1;
+    double yincrement = 1;
 
     static int n=10000;
 
-    static int TARGET_STRING_HORIZONTAL_OFFSET = 10;
-    static int TARGET_STRING_VERTICAL_OFFSET = 10;
+    static final int TARGET_STRING_HORIZONTAL_OFFSET = 10;
+    static final int TARGET_STRING_VERTICAL_OFFSET = 10;
+    static final int HORIZONTAL_BORDER_OFFSET = 25;
+    static final int VERTICAL_BORDER_OFFSET = 10;
+    static final int HORIZONTAL_AXIS_LABELS_HORIZONTAL_OFFSET = -10;
+    static final int VERTICAL_AXIS_LABELS_VERTICAL_OFFSET = 5;
 
-    static int HORIZONTAL_BORDER_OFFSET = 25;
-    static int VERTICAL_BORDER_OFFSET = 10;
+    int HORIZONTAL_AXIS_LABELS_VERTICAL_OFFSET;
+    int VERTICAL_AXIS_LABELS_HORIZONTAL_OFFSET;
 
-    static int HORIZONTAL_AXIS_MIN_LABEL_HORIZONTAL_OFFSET = 10;
-    static int HORIZONTAL_AXIS_MAX_LABEL_HORIZONTAL_OFFSET = 15;
-    static int HORIZONTAL_AXIS_LABELS_VERTICAL_OFFSET = 17;
+    static int TICKMARK_SIZE = 10; //in pixels
+    static int TICKMARK_LABELS_CHARACTER_HEIGHT = 8;
+    static int CHARACTER_WIDTH = 6;
 
-    static int VERTICAL_AXIS_MIN_LABEL_VERTICAL_OFFSET = 5;
-    static int VERTICAL_AXIS_MAX_LABEL_VERTICAL_OFFSET = 5;
-    static int VERTICAL_AXIS_LABELS_HORIZONTAL_OFFSET = 10;
-
-    static int TICKMARK_SIZE = 10;
-
-    TextField inputbar;
-    TextField xminbar;
-    TextField xmaxbar;
-    TextField yminbar;
-    TextField ymaxbar;
-    TextField xincrementbar;
-    TextField yincrementbar;
-
-    Label inputbarlabel;
-    Label xminbarlabel;
-    Label xmaxbarlabel;
-    Label yminbarlabel;
-    Label ymaxbarlabel;
-    Label xincrementbarlabel;
-    Label yincrementbarlabel;
+    NumberFormat nf = NumberFormat.getInstance();
 
     public Graph() {
 
         super();
 
-        frame = new Frame();
-        container = new Container();
-        inputbar = new TextField();
-        xminbar = new TextField();
-        xmaxbar = new TextField();
-        yminbar = new TextField();
-        ymaxbar = new TextField();
-        xincrementbar = new TextField();
-        yincrementbar = new TextField();
+        assembleFrame();
 
-        inputbarlabel = new Label();
-        xminbarlabel = new Label();
-        xmaxbarlabel = new Label();
-        yminbarlabel = new Label();
-        ymaxbarlabel = new Label();
-        xincrementbarlabel = new Label();
-        yincrementbarlabel = new Label();
+        WIDTH = this.getWidth();
+        HEIGHT = this.getHeight();
+        RWIDTH = WIDTH - 2 * HORIZONTAL_BORDER_OFFSET;
+        RHEIGHT = HEIGHT - 2 * VERTICAL_BORDER_OFFSET;
 
-        GraphController G = new GraphController(this,
+        this.setIgnoreRepaint(true);
+        this.createBufferStrategy(2);
+        strategy = this.getBufferStrategy();
+
+        GraphController G = new GraphController(this, frame,
                 inputbar, xminbar, xmaxbar, yminbar, ymaxbar, xincrementbar, yincrementbar);
+
         inputbar.addKeyListener(G);
         xminbar.addKeyListener(G);
         xmaxbar.addKeyListener(G);
@@ -242,17 +283,16 @@ public class Graph extends Canvas {
         ymaxbar.addKeyListener(G);
         xincrementbar.addKeyListener(G);
         yincrementbar.addKeyListener(G);
-
-        this.addComponentListener(G);
+        tickmarklabelscheckbox.addItemListener(G);
+        frame.addComponentListener(G);
         this.addMouseMotionListener(G);
-
+        this.addMouseListener(G);
         frame.addWindowListener(G);
 
-        assemble();
-
+        render();
    }
 
-   private void assemble() {
+   private void assembleFrame() {
 
         container.setLayout(new GridBagLayout());
         GridBagConstraints c = new GridBagConstraints();
@@ -309,6 +349,12 @@ public class Graph extends Canvas {
         yincrementbarlabel.setPreferredSize(new Dimension(85,50));
         yincrementbar.setPreferredSize(new Dimension(50,20));
 
+        tickmarklabelscheckboxlabel.setText("tickmarklabels:");
+        bottom.add(tickmarklabelscheckboxlabel);
+        bottom.add(tickmarklabelscheckbox);
+        tickmarklabelscheckboxlabel.setPreferredSize(new Dimension(100,50));
+        tickmarklabelscheckbox.setPreferredSize(new Dimension(25,30));
+
         c.fill = GridBagConstraints.HORIZONTAL;
         c.weightx = 1.0;   //request any extra vertical space
         c.weighty = 0;
@@ -322,34 +368,46 @@ public class Graph extends Canvas {
         frame.setSize(600,600);
         frame.setVisible(true);
 
-    }
-
-   public void updateTarget(int newtx, int newty) {
-        tx = newtx;
-        ty = newty;
    }
 
-   public void update(Function func, double xmin, double xmax, double ymin,
-                        double ymax, double xincrement, double yincrement) {
+   public void setTickLabelsShowing(boolean ticklabelsenabled) { this.ticklabelsenabled = ticklabelsenabled; }
+
+   public void setLabeledPointCoordinates(int lx, int ly) {
+        this.lx = lx;
+        this.ly = ly;
+   }
+
+   public void setXIncrement(double xincrement) { this.xincrement = xincrement; }
+   public void setYIncrement(double yincrement) { this.yincrement = yincrement; }
+
+   public void setFunction(Function func) {
        this.func = func;
+       if (func != null) func.print();
+   }
+
+   public void updateViewingWindow(double xmin, double xmax, double ymin, double ymax) {
        this.xmin = xmin;
        this.xmax = xmax;
        this.ymin = ymin;
        this.ymax = ymax;
-       this.xincrement = xincrement;
-       this.yincrement = yincrement;
        cx = (xmin + xmax)/2;
        cy = (ymin + ymax)/2;
        xrange = Math.abs(xmax - xmin);
        yrange = Math.abs(ymax - ymin);
-       System.out.println("n="+n);
-       func.print();
-
-       computePoints();
-       repaint();
    }
 
-   private void computePoints() {
+   public void updateViewingWindow(double xshift, double yshift) { 
+       xmin = xmin + xshift;
+       xmax = xmax + xshift;
+       ymin = ymin + yshift;
+       ymax = ymax + yshift;
+       cx = (xmin + xmax)/2;
+       cy = (ymin + ymax)/2;
+       xrange = Math.abs(xmax - xmin);
+       yrange = Math.abs(ymax - ymin);
+   }
+
+   public void computePoints() {
       xpoints = new double[n+1];
       ypoints = new double[n+1];
       for (int i = 0; i <= n; i++) {
@@ -371,17 +429,116 @@ public class Graph extends Canvas {
                               renderXToMathematicalX( mathematicalXToRenderX(xpoints[i]) )+", ypoints[i]="+
                              renderYToMathematicalY( mathematicalYToRenderY(ypoints[i]) ) );  }  */
    }
-
+   
+   public void render() {
+        do { 
+            do {
+                Graphics g = strategy.getDrawGraphics();
+                paint(g);
+                g.dispose();
+            }
+            while (strategy.contentsRestored());
+            strategy.show();
+        }
+        while (strategy.contentsLost());
+   }
 
    public void paint(Graphics g) {
+      g.clearRect(0, 0, WIDTH, HEIGHT);
+      g.setColor(Color.WHITE);
+      g.fillRect(0,0, WIDTH, HEIGHT);
+      paintAxesAndTickmarks(g);
+      if (func != null) paintCurve(g);
+    } 
+   
+    public void paintAxesAndTickmarks(Graphics g) {
+        
+        g.setColor(Color.BLACK);
 
-      Graphics2D g2 = (Graphics2D) g;
+        int xaxisy = mathematicalYToRenderY(0);
+        int horizticky = xaxisy; 
 
-      g2.clearRect(0, 0, WIDTH, HEIGHT);
+        if ( VERTICAL_BORDER_OFFSET <= xaxisy && xaxisy <= HEIGHT - VERTICAL_BORDER_OFFSET) { 
+            g.drawLine(mathematicalXToRenderX(xmin), xaxisy, mathematicalXToRenderX(xmax), xaxisy); 
+            HORIZONTAL_AXIS_LABELS_VERTICAL_OFFSET = 20;
+        }
+        else if ( xaxisy < VERTICAL_BORDER_OFFSET ) {
+            horizticky = VERTICAL_BORDER_OFFSET; 
+            HORIZONTAL_AXIS_LABELS_VERTICAL_OFFSET = 20;
+        }
+        else { 
+            horizticky = HEIGHT - VERTICAL_BORDER_OFFSET; 
+            HORIZONTAL_AXIS_LABELS_VERTICAL_OFFSET = -10;
+        }
 
-      if(func !=null) {
+        for (double d = 0; d >= xmin ; d -= xincrement ) {
+            g.drawLine(mathematicalXToRenderX(d), horizticky - TICKMARK_SIZE/2,
+                       mathematicalXToRenderX(d), horizticky + TICKMARK_SIZE/2 );
+           
+            if (ticklabelsenabled) { 
+                String tickmarklabel = nf.format(d);
+                g.drawString(tickmarklabel, mathematicalXToRenderX(d) + HORIZONTAL_AXIS_LABELS_HORIZONTAL_OFFSET,
+                             horizticky + HORIZONTAL_AXIS_LABELS_VERTICAL_OFFSET);
+            }
+        }
 
-            g2.setColor(Color.black);
+        for (double d = xincrement; d <= xmax ; d += xincrement   ) {
+            g.drawLine(mathematicalXToRenderX(d), horizticky - TICKMARK_SIZE/2,
+                       mathematicalXToRenderX(d), horizticky + TICKMARK_SIZE/2 );
+
+            if (ticklabelsenabled) {
+                String tickmarklabel = nf.format(d);
+                g.drawString(tickmarklabel, mathematicalXToRenderX(d), horizticky + HORIZONTAL_AXIS_LABELS_VERTICAL_OFFSET);
+            }
+        }
+
+        int yaxisx = mathematicalXToRenderX(0);
+        int verttickx = yaxisx;
+        boolean againstfarleft = false;
+
+        if ( HORIZONTAL_BORDER_OFFSET <= yaxisx && yaxisx <= WIDTH - HORIZONTAL_BORDER_OFFSET) {
+            g.drawLine(yaxisx, mathematicalYToRenderY(ymin), yaxisx, mathematicalYToRenderY(ymax));
+            VERTICAL_AXIS_LABELS_HORIZONTAL_OFFSET = 15;
+        }
+        else if ( yaxisx < HORIZONTAL_BORDER_OFFSET) { 
+            verttickx = HORIZONTAL_BORDER_OFFSET;
+            VERTICAL_AXIS_LABELS_HORIZONTAL_OFFSET = 15;
+        }
+        else { 
+            verttickx = WIDTH - HORIZONTAL_BORDER_OFFSET; 
+            //System.out.println("yminstring.length()="+nf.format(ymin).length() );
+            VERTICAL_AXIS_LABELS_HORIZONTAL_OFFSET = -15;
+            againstfarleft = true; 
+        }
+
+        for (double d = -yincrement; d >= ymin ; d -= yincrement  ) {
+            g.drawLine( verttickx - TICKMARK_SIZE/2, mathematicalYToRenderY(d),
+                   verttickx + TICKMARK_SIZE/2, mathematicalYToRenderY(d) );
+            
+            if (ticklabelsenabled) {
+                String tickmarklabel = nf.format(d);
+                //System.out.println(tickmarklabel);
+                int FAR_RIGHT_HORIZONTAL_OFFSET = againstfarleft ? -CHARACTER_WIDTH*tickmarklabel.length() : 0; 
+                g.drawString(tickmarklabel, verttickx + VERTICAL_AXIS_LABELS_HORIZONTAL_OFFSET +
+                            FAR_RIGHT_HORIZONTAL_OFFSET, mathematicalYToRenderY(d) + VERTICAL_AXIS_LABELS_VERTICAL_OFFSET);
+            }
+        }
+
+        for (double d = yincrement; d <= ymax ; d += yincrement   ) {
+            g.drawLine(verttickx - TICKMARK_SIZE/2, mathematicalYToRenderY(d),
+                   verttickx + TICKMARK_SIZE/2, mathematicalYToRenderY(d) );
+            
+            if (ticklabelsenabled) {
+                String tickmarklabel = nf.format(d);
+                int FAR_RIGHT_HORIZONTAL_OFFSET = againstfarleft ? -CHARACTER_WIDTH*tickmarklabel.length() : 0; 
+                g.drawString(tickmarklabel, verttickx + VERTICAL_AXIS_LABELS_HORIZONTAL_OFFSET +  
+                            FAR_RIGHT_HORIZONTAL_OFFSET, mathematicalYToRenderY(d) + VERTICAL_AXIS_LABELS_VERTICAL_OFFSET);
+            }
+        }
+
+    }
+
+    public void paintCurve(Graphics g) {
 
             ArrayList<Integer> xcurrentinterval = new ArrayList<Integer>();
             ArrayList<Integer> ycurrentinterval = new ArrayList<Integer>();
@@ -390,7 +547,7 @@ public class Graph extends Canvas {
                 int rx = mathematicalXToRenderX( xpoints[i] );    
                 int ry = mathematicalYToRenderY( ypoints[i] );    
                 if ( !(func.isContinuous( xpoints[i] )) ) {
-            //        System.out.println("discontinuity at x="+xpoints[i]);
+            //        System.out.println("discontinuily at x="+xpoints[i]);
                     g.drawPolyline(toIntArray(xcurrentinterval), toIntArray(ycurrentinterval), xcurrentinterval.size() );
                     xcurrentinterval.clear();
                     ycurrentinterval.clear();
@@ -400,106 +557,62 @@ public class Graph extends Canvas {
                 ycurrentinterval.add(ry);
             }
             g.drawPolyline(toIntArray(xcurrentinterval), toIntArray(ycurrentinterval), xcurrentinterval.size() );
-            NumberFormat nf = NumberFormat.getInstance();
 
-            if (pointhighlighted) {
-                g2.fillOval(tx - targetRadius, ty - targetRadius ,
+            if (hoveringovercurve) {
+                g.fillOval(lx - targetRadius, ly - targetRadius ,
                     2*targetRadius, 2*targetRadius);
 
-                double x = renderXToMathematicalX(tx);
-                double y = renderYToMathematicalY(ty);
+                double x = renderXToMathematicalX(lx);
+                double y = renderYToMathematicalY(ly);
                 String xstring = nf.format(x);
                 String ystring = nf.format(y);
                 
                 String targetstring = "("+xstring+", "+ystring+")";
                 
-                g2.drawString(targetstring, tx + TARGET_STRING_HORIZONTAL_OFFSET, ty + TARGET_STRING_VERTICAL_OFFSET);
-
+                g.drawString(targetstring, lx + TARGET_STRING_HORIZONTAL_OFFSET, ly + TARGET_STRING_VERTICAL_OFFSET);
             }
-
-            int xaxisy = mathematicalYToRenderY(0);
-            int horizticky = xaxisy; 
-
-            if ( VERTICAL_BORDER_OFFSET <= xaxisy && xaxisy <= HEIGHT - VERTICAL_BORDER_OFFSET) {
-                g2.drawLine(mathematicalXToRenderX(xmin), xaxisy, mathematicalXToRenderX(xmax), xaxisy); 
-            }
-            else if ( xaxisy < 0 ) horizticky = VERTICAL_BORDER_OFFSET; 
-            else horizticky = HEIGHT - VERTICAL_BORDER_OFFSET; 
-            
-            for (double d = 0.0; d >= xmin ; d -= xincrement ) {
-                    g2.drawLine(mathematicalXToRenderX(d), horizticky - TICKMARK_SIZE/2,
-                           mathematicalXToRenderX(d), horizticky + TICKMARK_SIZE/2 );
-            }
-
-            for (double d = 0.0; d <= xmax ; d += xincrement   ) {
-                    g2.drawLine(mathematicalXToRenderX(d), horizticky - TICKMARK_SIZE/2,
-                           mathematicalXToRenderX(d), horizticky + TICKMARK_SIZE/2 );
-            }
-
-            int yaxisx = mathematicalXToRenderX(0);
-            int verttickx = yaxisx;
-
-            if ( HORIZONTAL_BORDER_OFFSET <= yaxisx && yaxisx <= WIDTH - HORIZONTAL_BORDER_OFFSET) {
-                g2.drawLine(yaxisx, mathematicalYToRenderY(ymin), yaxisx, mathematicalYToRenderY(ymax));
-            }
-            else if ( yaxisx < 0) verttickx = HORIZONTAL_BORDER_OFFSET;
-            else verttickx = WIDTH - HORIZONTAL_BORDER_OFFSET; 
-
-            for (double d = 0.0; d >= ymin ; d -= yincrement  ) {
-                g2.drawLine( verttickx- TICKMARK_SIZE/2, mathematicalYToRenderY(d),
-                       verttickx + TICKMARK_SIZE/2, mathematicalYToRenderY(d) );
-            }
+    }
     
-            for (double d = 0.0; d <= ymax ; d += yincrement   ) {
-                g2.drawLine(verttickx - TICKMARK_SIZE/2, mathematicalYToRenderY(d),
-                       verttickx + TICKMARK_SIZE/2, mathematicalYToRenderY(d) );
-            }
-                
-         }
-    } 
-   
+
     public int mathematicalXToRenderX(double px) {
-       	int rx = (int) (HORIZONTAL_BORDER_OFFSET + RWIDTH/2 + (px - cx) * RWIDTH / xrange );
+       	int rx = (int) (HORIZONTAL_BORDER_OFFSET + RWIDTH / 2.0 + (px - cx) * (RWIDTH / xrange) );
 //System.out.println(gx);
         return rx;
     }
 
     public int mathematicalYToRenderY(double py) {
 // System.out.println("HEIGHT="+HEIGHT+"\ncy="+cy+"\npy="+py+"\nyscale="+yscale+"\n");
-        int ry = (int) (VERTICAL_BORDER_OFFSET + RHEIGHT/2 + (cy - py) * RHEIGHT / yrange );
+        int ry = (int) (VERTICAL_BORDER_OFFSET + RHEIGHT / 2.0 + (cy - py) * (RHEIGHT / yrange) );
 //System.out.println(gy);
         return ry;
     }
 
     public double renderYToMathematicalY(int ry) {
-        double py = cy - ( (double) (yrange / RHEIGHT)) * (ry - VERTICAL_BORDER_OFFSET - (double) (RHEIGHT/2) ); 
+        double py = cy - (yrange / RHEIGHT) * (ry - VERTICAL_BORDER_OFFSET - RHEIGHT / 2.0 ); 
         return py;
     }
 
     public double renderXToMathematicalX(int rx) {
-        double px = (double) (xrange/RWIDTH) * (rx - HORIZONTAL_BORDER_OFFSET - (double) (RWIDTH/2) ) + cx;
+        double px = (xrange / RWIDTH) * (rx - HORIZONTAL_BORDER_OFFSET - RWIDTH / 2.0 ) + cx;
         return px;
     }
 
-    public double canvasXToMathematicalX(int gx) {
-        double px = (double) (xrange/WIDTH) * (gx  - (double) (WIDTH/2) ) + cx;
+    public double canvasXToMathematicalX(int sx) {
+        double px = (xrange / WIDTH) * (sx - WIDTH / 2.0 ) + cx;
         return px;
     }
 
-    public double canvasYToMathematicalY(int gy) {
-        double py = cy - ( (double) (yrange/HEIGHT) * (gy  - (double) (HEIGHT/2) ) );
+    public double canvasYToMathematicalY(int sy) { 
+        double py = cy - (yrange / HEIGHT) * (sy - HEIGHT / 2.0 ); 
         return py;
     }
+
     public int[] toIntArray(ArrayList<Integer> A) {
         int[] ret = new int[A.size()];
         for (int i=0; i<A.size(); i++) {
             ret[i] = A.get(i);
         }
         return ret;
-    }
-
-    public static double sign(double d) {
-        return d/Math.abs(d);
     }
 
     public static void main(String[] args) {
