@@ -32,7 +32,7 @@ class GraphController implements ComponentListener, WindowListener, KeyListener,
     Function func;
     Frame frame;
 
-    static double MOUSE_CURVE_PROXIMITY_FACTOR = 10; //pixels on screen 
+    static double MOUSE_CURVE_PROXIMITY_FACTOR = 5; //pixels on screen 
     static double DRAG_SENSITIVITY = 1;
 
     Point target = new Point();
@@ -129,7 +129,7 @@ System.out.println("mx="+mx+", my="+my);
 
             if ( diff < MOUSE_CURVE_PROXIMITY_FACTOR ) {
                 graph.hoveringovercurve = true;
-                graph.setLabeledPointCoordinates( graph.mathematicalXToRenderX(px), graph.mathematicalYToRenderY(py) );
+                graph.setLabeledPointCoordinates( px, py );
             }
             else { graph.hoveringovercurve = false; }
         }
@@ -149,7 +149,7 @@ System.out.println("mx="+mx+", my="+my);
         mx1 = mx2;
         my1 = my2;
         graph.updateViewingWindow(xshift, yshift);
-        graph.setLabeledPointCoordinates(mx2, my2);
+        graph.setLabeledPointCoordinates( graph.mathematicalXToRenderX(mx2), graph.mathematicalYToRenderY(my2) );
         if (graph.func != null) graph.computePoints();
         graph.render();
     }
@@ -223,8 +223,8 @@ public class Graph extends Canvas {
     boolean hoveringovercurve = false;
     boolean ticklabelsenabled = false;
     int targetRadius = 5;
-    int lx;
-    int ly;
+    double lx;
+    double ly;
 
     //initialized prior to the input of a function so that the axes can be drawn
     double xmin = -5; 
@@ -372,7 +372,7 @@ public class Graph extends Canvas {
 
    public void setTickLabelsShowing(boolean ticklabelsenabled) { this.ticklabelsenabled = ticklabelsenabled; }
 
-   public void setLabeledPointCoordinates(int lx, int ly) {
+   public void setLabeledPointCoordinates(double lx, double ly) {
         this.lx = lx;
         this.ly = ly;
    }
@@ -559,17 +559,14 @@ public class Graph extends Canvas {
             g.drawPolyline(toIntArray(xcurrentinterval), toIntArray(ycurrentinterval), xcurrentinterval.size() );
 
             if (hoveringovercurve) {
-                g.fillOval(lx - targetRadius, ly - targetRadius ,
+
+                g.fillOval( mathematicalXToRenderX(lx) - targetRadius, mathematicalYToRenderY(ly) - targetRadius ,
                     2*targetRadius, 2*targetRadius);
 
-                double x = renderXToMathematicalX(lx);
-                double y = renderYToMathematicalY(ly);
-                String xstring = nf.format(x);
-                String ystring = nf.format(y);
+                String targetstring = "("+nf.format(lx)+", "+nf.format(ly)+")";
                 
-                String targetstring = "("+xstring+", "+ystring+")";
-                
-                g.drawString(targetstring, lx + TARGET_STRING_HORIZONTAL_OFFSET, ly + TARGET_STRING_VERTICAL_OFFSET);
+                g.drawString(targetstring, mathematicalXToRenderX(lx) + TARGET_STRING_HORIZONTAL_OFFSET, 
+                              mathematicalYToRenderY(ly) + TARGET_STRING_VERTICAL_OFFSET);
             }
     }
     
