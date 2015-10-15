@@ -1,4 +1,5 @@
 import java.util.HashMap;
+import java.util.Vector;
 import java.lang.Integer;
 
 enum State { 
@@ -11,7 +12,7 @@ enum Tok {
 }
 
 enum Func { 
-	Sin, Cos, Tan, Exp, Sqrt, Log, Ln, Undef, Factorial, Arcsin, Arccos, Arctan;	
+	Sin, Cos, Tan, Exp, Abs, Sqrt, Log, Ln, Undef, Factorial, Arcsin, Arccos, Arctan;	
 }
 
 enum Op { 
@@ -86,6 +87,7 @@ class Tokenizer {
 		if (s.equals("sqrt")) return true;
 		if (s.equals("log")) return true; 
         if (s.equals("ln")) return true;
+        if (s.equals("abs")) return true;
 		if (s.equals("factorial")) return true;
 		if (s.equals("arcsin")) return true;
         if (s.equals("arccos")) return true;
@@ -99,6 +101,7 @@ class Tokenizer {
 		if (s.equals("tan")) return Func.Tan;
 		if (s.equals("exp")) return Func.Exp;
 		if (s.equals("sqrt")) return Func.Sqrt;
+        if (s.equals("abs")) return Func.Abs;
 		if (s.equals("log")) return Func.Log;
         if (s.equals("ln")) return Func.Ln;
 		if (s.equals("factorial")) return Func.Factorial;
@@ -276,11 +279,55 @@ abstract class Node {
 		
 }
 
+class TermList extends Node {
+
+    Vector<Integer> signv;
+    Vector<Node> termv;
+
+
+    TermList() {
+        left = null;
+        right = null; 
+        signv = new Vector<Integer>();
+        termv = new Vector<Node>();
+    }
+
+    public void add(int sgn, Node term) {
+        signv.add(new Integer(sgn));
+        termv.add(term);
+    }
+
+    public double eval(HashMap<String, Double> argList) throws Exception {
+        double result = 0.0;
+        for (int i=0; i<termv.size(); i++) {
+            double d = termv.get(i).eval(argList);
+            if (signv.get(i).intValue() == -1) d *= -1;
+            result += d;
+        }
+        return result;
+    }
+
+    public String toString() {
+        String result = "";
+        boolean init = true;
+        for (int i=0; i<termv.size(); i++)  {
+            if (signv.get(i).intValue() == -1 ) 
+                result += " - "; 
+            else if (!init)
+                result += " + ";
+            init = false;
+            result += termv.get(i).toString();
+        }
+        return result;
+    }
+
+}
+
 class OpNode extends Node { 
 	Op op;
 
 	public String toString() { return op.toString(); }
-	
+
 	public double eval( HashMap<String, Double> args ) throws Exception { 		
 		switch(op) { 
 			case Plus: return left.eval( args ) + right.eval( args );
@@ -363,6 +410,7 @@ class FuncNode extends Node {
 		case Tan: return Math.tan( d );
 		case Exp: return Math.pow( Math.E, d );
 		case Sqrt: return Math.sqrt( d );
+        case Abs: return Math.abs(d) ;
 		case Log: return Math.log10( d );			
         case Ln: return Math.log( d );
 		case Arcsin: return Math.asin( d );
@@ -431,11 +479,11 @@ class ProdNode extends Node {
 }
 
 /**
-Expr :== '-' Term 
-     :== Term
-     :== Term +- Expr
+
+Expr ::= Term +- Term +- Term +- Term +- ...
+     ::= -Term +- Term +- Term +- Term +- ...
     
-Term :== '-' Factor
+Term :== '-' Power
      :== Power
      :== Power /* Term
 
@@ -449,8 +497,8 @@ Factor :== Number
             Function '(' Expr ')'
             Summation '(' Expr ',' Variable ',' Number ',' Number ')'
             Product '(' Expr ',' Variable ',' Number ',' Number ')'
-    
 **/
+
 class Parser { 
 
     Tokenizer str;
@@ -471,40 +519,52 @@ class Parser {
     }
     
     public void pushBack(Tok token) {
-     //   System.out.println("            PUSHBACK_REQUEST: " + token);
+        System.out.println("            PUSHBACK_REQUEST: " + token);
         str.backToken = token;
     }
 
     public void pushBack(String s, Tok token) {
-    //    System.out.println("            PUSHBACK_REQUEST: " + s + ", " +  token);
+        System.out.println("            PUSHBACK_REQUEST: " + s + ", " +  token);
         str.backToken = token;
     }
     
+
     public Node expr() throws Exception { 
-//System.out.println("expr -->");
-        Node left; 
-        Tok t = str.nextToken(); 
-        if (t == Tok.MINUS) {
-            left = new OpNode(Op.Times, new NumNode(-1), term() ); 
+	System.out.println("expr -->");
+	    TermList termlist = new TermList();
+        int s = 1;
+
+        while (true) {
+        
+            Tok t = str.nextToken();
+
+            switch (t) {
+                case EOS: 
+                    return termlist;
+                case INVALID: 
+                    System.out.println("expr: invalid token");
+                    throw new Exception("INVALID_TOKEN");
+                case PLUS: s=1; break;
+                case MINUS: s=-1; break;
+                default: 
+                    pushBack("e", t);
+                    s = +1;
+                    break;
+            }
+
+            Node term = term();
+            if (term != null)
+                termlist.add(s, term);
+            else
+                break; 
         }
-        else if (t == Tok.INVALID) throw new Exception("INVALID_TOKEN"); //nongramatical: Quickly catches invalid tokens
-        else {
-            pushBack("e", t);
-            left = term();
-        }
-        Tok token = str.nextToken();  
-		if (token == Tok.PLUS) return new OpNode(Op.Plus, left, expr()); 
-        else if (token == Tok.MINUS) return new OpNode(Op.Minus, left, expr());	
-        else { 
-            pushBack("e", token);
-            return left; 
-	    }
+
+        return termlist;
     }
-	
 
 	 // Consumes everything up to a times or divide, as according to the grammar.
 	public Node term() throws Exception { 
-//System.out.println("  term -->");
+System.out.println("  term -->");
         Node left; 
         Tok t = str.nextToken(); 
         if (t == Tok.MINUS) {
@@ -524,7 +584,7 @@ class Parser {
 	}
 
 	public Node power() throws Exception { 
-//System.out.println("    power-->");
+System.out.println("    power-->");
         Node left; 
         Tok t = str.nextToken(); 
         if (t == Tok.MINUS) {
@@ -543,7 +603,7 @@ class Parser {
 	}
 	
 	public Node factor() throws Exception { 
-//System.out.println("      factor -->");
+System.out.println("      factor -->");
         Tok token = str.nextToken();
 		if (token == Tok.VARIABLE) return new VarNode(str.strVal);
 		if (token == Tok.NUMBER) return new NumNode(str.numVal);	
@@ -661,9 +721,9 @@ public class Function {
         argList.put("x", Double.MIN_VALUE );
     }
 
-    public void print() { 
-        System.out.println(s);
-    }
+    public void print() { func.print(); }
+
+    public String toString() { return s; }
 
     public double value(double x) throws Exception {
         argList.replace("x", x);
@@ -745,7 +805,7 @@ public class Function {
             */
 
             Function f = new Function(args[0]);
-            System.out.println(f.isContinuous(Double.parseDouble(args[1])));
+            f.print();
     }
 
 }
