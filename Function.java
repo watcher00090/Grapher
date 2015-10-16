@@ -806,6 +806,12 @@ public class Function {
 
             Function f = new Function(args[0]);
             f.print();
+            try {
+                System.out.println("f(args[0]) = " + f.value(Double.parseDouble(args[0])) + "\nf(args[1]) = " + f.value(Double.parseDouble(args[1]) ) );
+            }
+            catch (Exception e) {
+                e.printStackTrace();
+            }
     }
 
 }
