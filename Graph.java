@@ -193,7 +193,6 @@ System.out.println("mx="+mx+", my="+my);
 public class Graph extends Canvas {
 
     Frame frame = new Frame();
-    Container container = new Container();
     TextField inputbar = new TextField();
     TextField xminbar = new TextField(); 
     TextField xmaxbar = new TextField();
@@ -252,9 +251,10 @@ public class Graph extends Canvas {
     int HORIZONTAL_AXIS_LABELS_VERTICAL_OFFSET;
     int VERTICAL_AXIS_LABELS_HORIZONTAL_OFFSET;
 
-    static int TICKMARK_SIZE = 10; //in pixels
-    static int TICKMARK_LABELS_CHARACTER_HEIGHT = 8;
-    static int CHARACTER_WIDTH = 6;
+    static final int TICKMARK_SIZE = 10; //in pixels
+    static final int TICKMARK_LABELS_CHARACTER_HEIGHT = 8;
+    static final int CHARACTER_WIDTH = 6;
+    static final Color labeledpointcolor = Color.BLUE;
 
     NumberFormat nf = NumberFormat.getInstance();
 
@@ -294,33 +294,60 @@ public class Graph extends Canvas {
 
    private void assembleFrame() {
 
-        container.setLayout(new GridBagLayout());
-        GridBagConstraints c = new GridBagConstraints();
+        frame.setLayout(new GridBagLayout());
+        GridBagConstraints oc = new GridBagConstraints();
 
-        c.fill = GridBagConstraints.BOTH;
+        oc.fill = GridBagConstraints.BOTH;
         c.gridx = 0;
         c.gridy = 0;
-        c.weightx = 1.0;
-        c.weighty = 1.0;
-        container.add(this, c);
+        oc.weightx = 1.0;
+        oc.weighty = 1.0;
+        frame.add(this, oc);
 
         Panel bottom = new Panel();
-        bottom.setLayout(new FlowLayout());
+        bottom.setLayout(new GridBagLayout());
+        GridBagConstraints ic = new GridBagConstraints();
 
         inputbarlabel.setText("y =");
         inputbarlabel.setPreferredSize(new Dimension(25,20));
         inputbar.setPreferredSize(new Dimension(100,20));
+        oc.gridx = 0;
+        oc.gridheight = 2;
+        oc.gridwidth = 2;
+        oc.gridy = 0;
+        oc.weightx = .166665;
+        oc.weighty = 1;
         bottom.add(inputbarlabel);
+        oc.gridx = 1;
+        oc.gridy = 0;
+        oc.weightx = .166665;
+        oc.weighty = .5;
         bottom.add(inputbar);
 
         xminbarlabel.setText("xmin =");
+        oc.gridx = 2;
+        oc.gridy = 0;
+        oc.weightx = .166665;
+        oc.weighty = .5;
         bottom.add(xminbarlabel);
+        oc.gridx = 3;
+        oc.gridy = 0;
+        oc.weightx = .166665;
+        oc.weighty = .5;
         bottom.add(xminbar);
         xminbarlabel.setPreferredSize(new Dimension(50,20));
         xminbar.setPreferredSize(new Dimension(50,20));
 
         xmaxbarlabel.setText("xmax =");
+        oc.gridx = 4;
+        oc.gridy = 0;
+        oc.weightx = .166665;
+        oc.weighty = .5;
         bottom.add(xmaxbarlabel);
+        oc.gridx = 5;
+        oc.gridy = 0;
+        oc.weightx = .166665;
+        oc.weighty = .5;
         bottom.add(xmaxbar);
         xmaxbarlabel.setPreferredSize(new Dimension(50,20));
         xmaxbar.setPreferredSize(new Dimension(50,20));
@@ -355,16 +382,15 @@ public class Graph extends Canvas {
         tickmarklabelscheckboxlabel.setPreferredSize(new Dimension(100,50));
         tickmarklabelscheckbox.setPreferredSize(new Dimension(25,30));
 
-        c.fill = GridBagConstraints.HORIZONTAL;
-        c.weightx = 1.0;   //request any extra vertical space
-        c.weighty = 0;
-        c.gridx = 0;
-        c.gridy = 1;
-        c.ipady = 30;
+        oc.fill = GridBagConstraints.HORIZONTAL;
+        oc.weightx = 1.0;   //request any extra vertical space
+        oc.weighty = 0;
+        oc.gridx = 0;
+        oc.gridy = 1;
+        oc.ipady = 20;
         //c.anchor = GridBagConstraints.PAGE_END; //bottom of space
-        container.add(bottom, c);
+        frame.add(bottom, oc);
 
-        frame.add(container);
         frame.setSize(600,600);
         frame.setVisible(true);
 
@@ -559,6 +585,8 @@ public class Graph extends Canvas {
             g.drawPolyline(toIntArray(xcurrentinterval), toIntArray(ycurrentinterval), xcurrentinterval.size() );
 
             if (hoveringovercurve) {
+            
+                g.setColor(labeledpointcolor);
 
                 g.fillOval( mathematicalXToRenderX(lx) - targetRadius, mathematicalYToRenderY(ly) - targetRadius ,
                     2*targetRadius, 2*targetRadius);
