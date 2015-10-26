@@ -1,5 +1,6 @@
 import java.util.HashMap;
 import java.util.Vector;
+import java.util.Set;
 import java.lang.Integer;
 
 enum State { 
@@ -8,7 +9,7 @@ enum State {
 
 //Token Types. UNDEF = pushback token when nothing's been pushed back, token returned when state is unknown.
 enum Tok { 
-	LPAR, RPAR, PLUS, MINUS, TIMES, DIVIDE, HAT, NUMBER, VARIABLE, FUNCTION, SUMMATION, PRODUCT, COMMA, EOS, UNDEF, INVALID
+	LPAR, RPAR, PLUS, MINUS, TIMES, DIVIDE, HAT, NUMBER, VARIABLE, FUNCTION, SUMMATION, PRODUCT, COMMA, EOS, UNDEF, INVALID, E, C, G, g, PI;
 }
 
 enum Func { 
@@ -219,8 +220,13 @@ class Tokenizer {
 					i--;
 					if (c==0) state = State.DONE;
 					if (isFunc(strVal)) return Tok.FUNCTION;
-					if (strVal.equals( "Sum" )) return Tok.SUMMATION;
-					if (strVal.equals( "Prod" )) return Tok.PRODUCT;
+					if (strVal.equals( "sum" )) return Tok.SUMMATION;
+					if (strVal.equals( "prod" )) return Tok.PRODUCT;
+                    if (strVal.equals( "e" )) return Tok.E;
+                    if (strVal.equals( "pi")) return Tok.PI;
+                    if (strVal.equals( "c")) return Tok.C;
+                    if (strVal.equals( "G")) return Tok.G;
+                    if (strVal.equals( "g")) return Tok.g;
 					return Tok.VARIABLE;
 				}
 				else {
@@ -252,32 +258,20 @@ class Tokenizer {
 abstract class Node {
 	Node left; 
 	Node right;
+    public static HashMap<String, Double> argList = new HashMap<String, Double>();
 	static final int NUM_SPACES = 2;
 
-	abstract double eval( HashMap<String, Double> args ) throws Exception; 
-	
-	double eval() throws Exception {
-		throw new Exception( "Not implemented" );
-	}
+	abstract double eval() throws Exception; 
 
-    void print() {
-        //print(0);
-        System.out.println(this.toString());
+    void print() { System.out.println(this.toString()); }
+
+    void printArgList() {
+        Set<String> variables = argList.keySet();
+        System.out.print("Variables: ");  
+        for (String v : variables) System.out.print(v + " ");
+        System.out.println();
     }
 	
-	/*void print(int depth) { 
-		printSpaces(depth);
-		System.out.println(this.toString());
-		if (left !=null) left.print(depth+1);
-		if (right !=null) right.print(depth+1);
-    }*/
-
-	protected static void printSpaces(int depth) {
-		for (int i=0; i<NUM_SPACES*depth; i++) { 
-			System.out.print(" ");
-		}
-	}	
-		
 }
 
 class TermList extends Node {
@@ -297,10 +291,10 @@ class TermList extends Node {
         termv.add(term);
     }
 
-    public double eval(HashMap<String, Double> argList) throws Exception {
+    public double eval() throws Exception {
         double result = 0.0;
         for (int i=0; i<termv.size(); i++) {
-            double d = termv.get(i).eval(argList);
+            double d = termv.get(i).eval();
             if (signv.get(i).intValue() == -1) d *= -1;
             result += d;
         }
@@ -331,16 +325,16 @@ class TermList extends Node {
 class OpNode extends Node { 
 	Op op;
 
-	public double eval( HashMap<String, Double> args ) throws Exception { 		
+	public double eval() throws Exception { 		
 		switch(op) { 
-			case Plus: return left.eval( args ) + right.eval( args );
-			case Minus: return left.eval( args ) - right.eval( args );
-			case Times: return left.eval( args ) * right.eval( args );
+			case Plus: return left.eval() + right.eval();
+			case Minus: return left.eval() - right.eval();
+			case Times: return left.eval() * right.eval();
 			case Divide: {
-				if (left.eval( args ) == 0) throw new Exception("division by 0");
-					return left.eval( args ) / right.eval( args );
+				if (left.eval() == 0) throw new Exception("division by 0");
+					return left.eval() / right.eval();
 				}
-			case Hat: return Math.pow(left.eval( args ), right.eval( args ));
+			case Hat: return Math.pow(left.eval(), right.eval());
 			default: throw new Exception("invalid operator");
 		}
 	}
@@ -366,11 +360,10 @@ class VarNode extends Node {
 
 	public String toString() { return name; }
 	
-	public double eval( HashMap<String, Double> args ) throws Exception {
-		Double dd = args.get( name ); //gets the value corresponding to the Node's variable.
-		if (dd==null) { 
+	public double eval() throws Exception {
+		Double dd = argList.get( name ); //gets the value corresponding to the Node's variable.
+		if (dd==null)  
 			throw new Exception( "VarNode has no value mapping" );
-		}
         return dd.doubleValue();	
 	}
 	
@@ -378,6 +371,8 @@ class VarNode extends Node {
 		this.name = name; 
 		left = null;
 		right = null; 
+        if (!argList.containsKey(name))
+            argList.put(name, Double.MIN_VALUE); 
 	}
 
 }
@@ -386,7 +381,6 @@ class NumNode extends Node {
 	double val;
 
 	public String toString() { return Double.toString(val); }
-	public double eval( HashMap<String, Double> args ) throws Exception { return val; }
 	public double eval() throws Exception { return val; }
 
 	NumNode(double val) { 
@@ -412,8 +406,8 @@ class FuncNode extends Node {
 		System.out.println("]");
 	}*/
 		
-	public double eval( HashMap<String, Double> args ) throws Exception {
-		double d = argExpr.eval( args );
+	public double eval() throws Exception {
+		double d = argExpr.eval();
 		switch (name) { 
 		case Sin: return Math.sin( d );
 		case Cos: return Math.cos( d );
@@ -438,12 +432,7 @@ class FuncNode extends Node {
 	}	
 
     public String toString() {
-        String result = "";
-        result += name;
-        result += "[";
-        result += argExpr.toString();
-        result += "]";
-        return result;
+        return name + "[" + argExpr.toString() + "]";
     }
 
 }
@@ -462,15 +451,22 @@ class SumNode extends Node {
 		this.limit = limit;
 	}
 	
-	public double eval( HashMap<String, Double> args ) throws Exception {
+	public double eval() throws Exception {
 		double accum = 0;
 		for (int i=start; i<=limit; i++) {
-			if (null == args.replace( var, new Double(i) ))
+			if (!argList.containsKey(var))
 				throw new Exception( "Summation parameter missing in arg list" );
-			accum += argExpr.eval( args );
+            else  
+                argList.replace( var, new Double(i) );
+			    accum += argExpr.eval();
 		}
 		return accum;
     }
+
+    public String toString() {
+        return "sum("+ argExpr.toString() + ", " + var + ", " + start + ", " + limit + ")"; 
+    }
+
 }
 
 class ProdNode extends Node { 
@@ -487,13 +483,15 @@ class ProdNode extends Node {
 		this.limit = limit;
 	}
 	
-	public double eval( HashMap<String, Double> args ) throws Exception {
+	public double eval() throws Exception {
 		double accum = 0;
 		for (int i=start; i<=limit; i++) {
-			if (null == args.replace( var, new Double(i) ))
+			if (!argList.containsKey(var))
 				throw new Exception( "Summation parameter missing in arg list" );
-			accum *= argExpr.eval( args );
-		}
+            else  
+                argList.replace( var, new Double(i) );
+			    accum *= argExpr.eval();
+        }
 		return accum;
     }
 
@@ -628,6 +626,10 @@ System.out.println("      factor -->");
         Tok token = str.nextToken();
 		if (token == Tok.VARIABLE) return new VarNode(str.strVal);
 		if (token == Tok.NUMBER) return new NumNode(str.numVal);	
+        if (token == Tok.E) return new NumNode(Math.E);
+        if (token == Tok.PI) return new NumNode(Math.PI);
+        if (token == Tok.G) return new NumNode(6.67408E-11);
+        if (token == Tok.g) return new NumNode(9.8);
 		if (token == Tok.FUNCTION) { 
 			String funcName = str.strVal;
 			if (str.nextToken() != Tok.LPAR)
@@ -730,7 +732,6 @@ public class Function {
 
     Node func;
     String s;
-    HashMap<String, Double> argList = new HashMap<String, Double>();
     static double CONTINUITY_INCREMENT = .000001;
     static double MARGIN_OF_ERROR = .01;
 
@@ -739,16 +740,17 @@ public class Function {
         Parser P = new Parser(T);
         this.func = P.root;
         this.s = s;
-        argList.put("x", Double.MIN_VALUE );
     }
 
     public void print() { func.print(); }
+    
+    public void printArgList() { func.printArgList(); } 
 
     public String toString() { return s; }
 
-    public double value(double x) throws Exception {
-        argList.replace("x", x);
-        return func.eval(argList);
+    public double value(double x) throws Exception { 
+        func.argList.replace("x", x);
+        return func.eval(); 
     }
 
    public boolean isContinuous(double x) {
@@ -827,8 +829,9 @@ public class Function {
             System.out.println("Test Code");
             Function f = new Function(args[0]);
             f.print();
-            try {
-                System.out.println("f(args[0]) = " + f.value(Double.parseDouble(args[0])) + "\nf(args[1]) = " + f.value(Double.parseDouble(args[1]) ) );
+            f.printArgList();
+            try { 
+                System.out.println("f(" + Double.parseDouble(args[1]) + ") = " + f.value(Double.parseDouble(args[1])));
             }
             catch (Exception e) {
                 e.printStackTrace();
