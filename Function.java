@@ -363,7 +363,7 @@ class VarNode extends Node {
 	public double eval() throws Exception {
 		Double dd = argList.get( name ); //gets the value corresponding to the Node's variable.
 		if (dd==null)  
-			throw new Exception( "VarNode has no value mapping" );
+			throw new Exception( "Variable " + name + " has no value mapping" );
         return dd.doubleValue();	
 	}
 	
@@ -372,7 +372,7 @@ class VarNode extends Node {
 		left = null;
 		right = null; 
         if (!argList.containsKey(name))
-            argList.put(name, Double.MIN_VALUE); 
+            argList.put(name, null); 
 	}
 
 }
