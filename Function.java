@@ -252,7 +252,8 @@ class Tokenizer {
 abstract class Node {
 	Node left; 
 	Node right;
-	
+	static final int NUM_SPACES = 2;
+
 	abstract double eval( HashMap<String, Double> args ) throws Exception; 
 	
 	double eval() throws Exception {
@@ -260,19 +261,19 @@ abstract class Node {
 	}
 
     void print() {
-        print(0);
-        System.out.println();
+        //print(0);
+        System.out.println(this.toString());
     }
 	
-	void print(int depth) { 
+	/*void print(int depth) { 
 		printSpaces(depth);
 		System.out.println(this.toString());
 		if (left !=null) left.print(depth+1);
 		if (right !=null) right.print(depth+1);
-    }
+    }*/
 
 	protected static void printSpaces(int depth) {
-		for (int i=0; i<2*depth; i++) { 
+		for (int i=0; i<NUM_SPACES*depth; i++) { 
 			System.out.print(" ");
 		}
 	}	
@@ -283,7 +284,6 @@ class TermList extends Node {
 
     Vector<Integer> signv;
     Vector<Node> termv;
-
 
     TermList() {
         left = null;
@@ -311,12 +311,17 @@ class TermList extends Node {
         String result = "";
         boolean init = true;
         for (int i=0; i<termv.size(); i++)  {
-            if (signv.get(i).intValue() == -1 ) 
-                result += " - "; 
-            else if (!init)
+            boolean negativetermfound=false;
+            if (signv.get(i) == -1) { 
+                result += " - ";
+                negativetermfound = true;
+            }    
+            else if (!init) {
                 result += " + ";
+            }
             init = false;
-            result += termv.get(i).toString();
+            String termstring = termv.get(i).toString();
+            if (termstring.length() > 3 && negativetermfound) result += "(" + termstring + ")";               else result += termstring;
         }
         return result;
     }
@@ -325,8 +330,6 @@ class TermList extends Node {
 
 class OpNode extends Node { 
 	Op op;
-
-	public String toString() { return op.toString(); }
 
 	public double eval( HashMap<String, Double> args ) throws Exception { 		
 		switch(op) { 
@@ -347,6 +350,14 @@ class OpNode extends Node {
 		this.left = left;
 		this.right = right;
 	}
+
+	public String toString() { 
+        String result = "";
+        if (left != null) result += left.toString();
+        result += op.toString();
+        if (right != null) result += right.toString();
+        return result;
+    }
 
 }
 
@@ -392,15 +403,14 @@ class FuncNode extends Node {
 	void printFuncSpaces() { 
 		for (int i=0; i<name.toString().length(); i++) System.out.print(" ");
 	}
-		
+	/*	
 	void print(int d) { //overides print(d) in node.
 		printSpaces(d);
 		System.out.println(name + "[");
-		argExpr.print(d+1);
-		printFuncSpaces();
+		argExpr.print(d + name.toString().length() + 1);
 		printSpaces(d);
 		System.out.println("]");
-	}
+	}*/
 		
 	public double eval( HashMap<String, Double> args ) throws Exception {
 		double d = argExpr.eval( args );
@@ -426,6 +436,16 @@ class FuncNode extends Node {
 		left = null;
 		right = null;
 	}	
+
+    public String toString() {
+        String result = "";
+        result += name;
+        result += "[";
+        result += argExpr.toString();
+        result += "]";
+        return result;
+    }
+
 }
 
 class SumNode extends Node { 
@@ -476,22 +496,24 @@ class ProdNode extends Node {
 		}
 		return accum;
     }
+
 }
 
 /**
+Grammar: 
 
 Expr ::= Term +- Term +- Term +- Term +- ...
      ::= -Term +- Term +- Term +- Term +- ...
     
-Term :== '-' Power
-     :== Power
-     :== Power /* Term
+Term ::= '-' Power
+     ::= Power
+     ::= Power /* Term
 
-Power :== '-' Factor
-      :== Factor
-      :== Factor ^ Power
+Power ::= '-' Factor
+      ::= Factor
+      ::= Factor ^ Power
 
-Factor :== Number
+Factor ::= Number
            Variable
            '(' Expr ')'
             Function '(' Expr ')'
@@ -533,9 +555,9 @@ class Parser {
 	System.out.println("expr -->");
 	    TermList termlist = new TermList();
         int s = 1;
+        boolean firstterm = true;
 
-        while (true) {
-        
+       while (true) { 
             Tok t = str.nextToken();
 
             switch (t) {
@@ -555,8 +577,7 @@ class Parser {
             Node term = term();
             if (term != null)
                 termlist.add(s, term);
-            else
-                break; 
+            else break; 
         }
 
         return termlist;
@@ -688,8 +709,8 @@ System.out.println("      factor -->");
 			Tok extra = str.nextToken();
 			if (extra == Tok.RPAR) return interior; //consumes everything up to the next ')'.
 			throw new Exception("UNBALANCED_PARENTHESIS"); //no rightparens makes input invalid.
-            /* We would pushBack here if we had more tokens. Yet the only tokens we can get here now are EOS, INVALID, and UNDEF */
 		}
+        pushBack("f", token);
         //nextToken() design saves need for pushing back EOS
         return null; 
 	}	

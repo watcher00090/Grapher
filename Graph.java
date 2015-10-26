@@ -15,6 +15,7 @@ import java.awt.event.WindowEvent;
 import java.awt.event.WindowListener;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.Scanner;
 
 class GraphController implements ComponentListener, WindowListener, KeyListener, 
                                 ItemListener, MouseListener, MouseMotionListener {
@@ -193,7 +194,6 @@ System.out.println("mx="+mx+", my="+my);
 public class Graph extends Canvas {
 
     Frame frame = new Frame();
-    Container container = new Container();
     TextField inputbar = new TextField();
     TextField xminbar = new TextField(); 
     TextField xmaxbar = new TextField();
@@ -252,11 +252,13 @@ public class Graph extends Canvas {
     int HORIZONTAL_AXIS_LABELS_VERTICAL_OFFSET;
     int VERTICAL_AXIS_LABELS_HORIZONTAL_OFFSET;
 
-    static int TICKMARK_SIZE = 10; //in pixels
-    static int TICKMARK_LABELS_CHARACTER_HEIGHT = 8;
-    static int CHARACTER_WIDTH = 6;
+    static final int TICKMARK_SIZE = 10; //in pixels
+    static final int TICKMARK_LABELS_CHARACTER_HEIGHT = 8;
+    static final int CHARACTER_WIDTH = 6;
+    static final Color labeledpointcolor = Color.BLUE;
 
     NumberFormat nf = NumberFormat.getInstance();
+    GraphController G;
 
     public Graph() {
 
@@ -273,7 +275,7 @@ public class Graph extends Canvas {
         this.createBufferStrategy(2);
         strategy = this.getBufferStrategy();
 
-        GraphController G = new GraphController(this, frame,
+        G = new GraphController(this, frame,
                 inputbar, xminbar, xmaxbar, yminbar, ymaxbar, xincrementbar, yincrementbar);
 
         inputbar.addKeyListener(G);
@@ -294,77 +296,138 @@ public class Graph extends Canvas {
 
    private void assembleFrame() {
 
-        container.setLayout(new GridBagLayout());
-        GridBagConstraints c = new GridBagConstraints();
+        frame.setLayout(new GridBagLayout());
+        GridBagConstraints oc = new GridBagConstraints();
 
-        c.fill = GridBagConstraints.BOTH;
-        c.gridx = 0;
-        c.gridy = 0;
-        c.weightx = 1.0;
-        c.weighty = 1.0;
-        container.add(this, c);
+        oc.fill = GridBagConstraints.BOTH;
+        oc.gridx = 0;
+        oc.gridy = 0;
+        oc.weightx = 1.0; 
+        oc.weighty = 1.0;
+        frame.add(this, oc);
 
-        Panel bottom = new Panel();
-        bottom.setLayout(new FlowLayout());
+        Container bottom = new Container();
+        oc.fill = GridBagConstraints.HORIZONTAL;
+        oc.gridx = 0;
+        oc.gridy = 1;
+        oc.weightx = 1.0;   //request any extra horizontal space
+        oc.weighty = 0;
+        bottom.setPreferredSize(new Dimension(640,80));
+        frame.add(bottom, oc);
 
-        inputbarlabel.setText("y =");
-        inputbarlabel.setPreferredSize(new Dimension(25,20));
-        inputbar.setPreferredSize(new Dimension(100,20));
-        bottom.add(inputbarlabel);
-        bottom.add(inputbar);
+       //bottom layout; 
+        GridBagConstraints bc = new GridBagConstraints();
+        bottom.setLayout(new GridBagLayout());
+        bc.ipadx = 10;
+        bc.ipady = 0;
 
-        xminbarlabel.setText("xmin =");
-        bottom.add(xminbarlabel);
-        bottom.add(xminbar);
+        inputbarlabel.setText("  y=");
+        bc.gridx = 0;
+        bc.gridy = 0;
+        bc.weightx = 0.0;
+        bc.fill = GridBagConstraints.NONE; 
+        //bc.anchor = GridBagConstraints.WEST;
+        bottom.add(inputbarlabel, bc);
+        inputbarlabel.setPreferredSize(new Dimension(20,20));
+
+        bc.gridx = 1;
+        bc.gridy = 0;
+        bc.fill = GridBagConstraints.HORIZONTAL;
+        bc.weightx = 1.0; //request any extra horiz space
+        bottom.add(inputbar, bc);
+
+        Container tablecontainer = new Container();
+        bc.gridx = 0;
+        bc.gridy = 1;
+        bc.gridwidth = 6;
+        bc.gridheight = 2;
+        bc.weightx = 0.0;
+        bc.fill = GridBagConstraints.NONE; 
+        bc.anchor = GridBagConstraints.WEST;
+        bottom.add(tablecontainer, bc);
+        tablecontainer.setPreferredSize(new Dimension(590, 40));
+
+        //bottom table layout
+        GridBagConstraints ic = new GridBagConstraints();
+        tablecontainer.setLayout(new GridBagLayout());
+
+        xminbarlabel.setText("xmin=");
+        ic.gridx = 0;
+        ic.gridy = 0;
+        tablecontainer.add(xminbarlabel, ic);
+        ic.gridx = 1;
+        ic.gridy = 0;
+        tablecontainer.add(xminbar, ic);
         xminbarlabel.setPreferredSize(new Dimension(50,20));
-        xminbar.setPreferredSize(new Dimension(50,20));
+        xminbar.setPreferredSize(new Dimension(100,20));
+        xminbar.setMinimumSize(new Dimension(100,20));
 
-        xmaxbarlabel.setText("xmax =");
-        bottom.add(xmaxbarlabel);
-        bottom.add(xmaxbar);
+        xmaxbarlabel.setText("xmax=");
+        ic.gridx = 2;
+        ic.gridy = 0;
+        tablecontainer.add(xmaxbarlabel, ic);
+        ic.gridx = 3;
+        ic.gridy = 0;
+        tablecontainer.add(xmaxbar, ic);
         xmaxbarlabel.setPreferredSize(new Dimension(50,20));
-        xmaxbar.setPreferredSize(new Dimension(50,20));
+        xmaxbar.setPreferredSize(new Dimension(100,20));
+        xmaxbar.setMinimumSize(new Dimension(100,20));
 
-        yminbarlabel.setText("ymin =");
-        bottom.add(yminbarlabel);
-        bottom.add(yminbar);
-        yminbarlabel.setPreferredSize(new Dimension(50,20));
-        yminbar.setPreferredSize(new Dimension(50,20));
-
-        ymaxbarlabel.setText("ymax =");
-        bottom.add(ymaxbarlabel);
-        bottom.add(ymaxbar);
-        ymaxbarlabel.setPreferredSize(new Dimension(50,20));
-        ymaxbar.setPreferredSize(new Dimension(50,20));
-
-        xincrementbarlabel.setText("xincrement =");
-        bottom.add(xincrementbarlabel);
-        bottom.add(xincrementbar);
-        xincrementbarlabel.setPreferredSize(new Dimension(85,50));
-        xincrementbar.setPreferredSize(new Dimension(50,20));
-
-        yincrementbarlabel.setText("yincrement =");
-        bottom.add(yincrementbarlabel);
-        bottom.add(yincrementbar);
-        yincrementbarlabel.setPreferredSize(new Dimension(85,50));
-        yincrementbar.setPreferredSize(new Dimension(50,20));
+        xincrementbarlabel.setText("xincrement=");
+        ic.gridx = 4;
+        ic.gridy = 0;
+        tablecontainer.add(xincrementbarlabel, ic);
+        ic.gridx = 5;
+        ic.gridy = 0;
+        tablecontainer.add(xincrementbar, ic);
+        xincrementbarlabel.setPreferredSize(new Dimension(100,20));
+        xincrementbar.setPreferredSize(new Dimension(100,20));
+        xincrementbar.setMinimumSize(new Dimension(100,20));
 
         tickmarklabelscheckboxlabel.setText("tickmarklabels:");
-        bottom.add(tickmarklabelscheckboxlabel);
-        bottom.add(tickmarklabelscheckbox);
-        tickmarklabelscheckboxlabel.setPreferredSize(new Dimension(100,50));
-        tickmarklabelscheckbox.setPreferredSize(new Dimension(25,30));
+        ic.gridx = 6;
+        ic.gridy = 0;
+        tablecontainer.add(tickmarklabelscheckboxlabel, ic);
+        //tickmarklabelscheckboxlabel.setPreferredSize(new Dimension(200,20));
+        //tickmarklabelscheckboxlabel.setMinimumSize(new Dimension(50,20));
+        
+        ic.gridx = 7;
+        ic.gridy = 0;
+        tablecontainer.add(tickmarklabelscheckbox, ic);
 
-        c.fill = GridBagConstraints.HORIZONTAL;
-        c.weightx = 1.0;   //request any extra vertical space
-        c.weighty = 0;
-        c.gridx = 0;
-        c.gridy = 1;
-        c.ipady = 30;
-        //c.anchor = GridBagConstraints.PAGE_END; //bottom of space
-        container.add(bottom, c);
+        yminbarlabel.setText("ymin=");
+        ic.gridx = 0;
+        ic.gridy = 1;
+        tablecontainer.add(yminbarlabel, ic);
+        ic.gridx = 1;
+        ic.gridy = 1;
+        tablecontainer.add(yminbar, ic);
+        yminbarlabel.setPreferredSize(new Dimension(50,20));
+        yminbar.setPreferredSize(new Dimension(100,20));
+        yminbar.setMinimumSize(new Dimension(100,20));
 
-        frame.add(container);
+        ymaxbarlabel.setText("ymax=");
+        ic.gridx = 2;
+        ic.gridy = 1;
+        tablecontainer.add(ymaxbarlabel, ic);
+        ic.gridx = 3;
+        ic.gridy = 1;
+        tablecontainer.add(ymaxbar, ic);
+        ymaxbarlabel.setPreferredSize(new Dimension(50,20));
+        ymaxbar.setPreferredSize(new Dimension(100,20));
+        ymaxbar.setMinimumSize(new Dimension(100,20));
+
+        yincrementbarlabel.setText("yincrement=");
+        ic.gridx = 4;
+        ic.gridy = 1;
+        tablecontainer.add(yincrementbarlabel, ic);
+        ic.gridx = 5;
+        ic.gridy = 1;
+        tablecontainer.add(yincrementbar, ic);
+        yincrementbarlabel.setPreferredSize(new Dimension(100,20));
+        yincrementbar.setPreferredSize(new Dimension(100,20));
+        yincrementbar.setMinimumSize(new Dimension(100,20));
+
         frame.setSize(600,600);
         frame.setVisible(true);
 
@@ -449,7 +512,7 @@ public class Graph extends Canvas {
       g.fillRect(0,0, WIDTH, HEIGHT);
       paintAxesAndTickmarks(g);
       if (func != null) paintCurve(g);
-    } 
+   } 
    
     public void paintAxesAndTickmarks(Graphics g) {
         
@@ -559,6 +622,8 @@ public class Graph extends Canvas {
             g.drawPolyline(toIntArray(xcurrentinterval), toIntArray(ycurrentinterval), xcurrentinterval.size() );
 
             if (hoveringovercurve) {
+            
+                g.setColor(labeledpointcolor);
 
                 g.fillOval( mathematicalXToRenderX(lx) - targetRadius, mathematicalYToRenderY(ly) - targetRadius ,
                     2*targetRadius, 2*targetRadius);
@@ -613,7 +678,25 @@ public class Graph extends Canvas {
     }
 
     public static void main(String[] args) {
-        Graph G = new Graph();
+        Graph g = new Graph();
+        Scanner sc = new Scanner(System.in);
+        while (sc.hasNextLine()) {
+            System.out.println("> ");
+            String text = sc.nextLine();
+            g.inputbar.setText(text);
+            g.G.keyPressed( new KeyEvent(g,
+                            KeyEvent.KEY_PRESSED,
+                            System.currentTimeMillis(),
+                            0,
+                            KeyEvent.VK_ENTER,
+                            '\n' ));
+            try { 
+                Thread.sleep(1);
+            }
+            catch (InterruptedException e) {
+                e.printStackTrace();
+            }
+         }
      }
 
 }
