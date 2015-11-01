@@ -9,7 +9,8 @@ enum State {
 
 //Token Types. UNDEF = pushback token when nothing's been pushed back, token returned when state is unknown.
 enum Tok { 
-	LPAR, RPAR, PLUS, MINUS, TIMES, DIVIDE, HAT, NUMBER, VARIABLE, FUNCTION, SUMMATION, PRODUCT, COMMA, EOS, UNDEF, INVALID, E, C, G, g, PI;
+	LPAR, RPAR, PLUS, MINUS, TIMES, DIVIDE, HAT, NUMBER, VARIABLE, 
+    FUNCTION, SUMMATION, PRODUCT, REX, COMMA, EOS, UNDEF, INVALID, E, C, G, g, PI;
 }
 
 enum Func { 
@@ -38,6 +39,7 @@ enum Op {
  * 1. Built-in
  * 2. Sum or Product(evaluated function, different from the built-in functions). 
  */
+
 class Tokenizer { 
 
 	String in;
@@ -120,10 +122,11 @@ class Tokenizer {
 
 	 /**
 	  * Fewer States is desirable. Operators and punctuation are single characters, so there isn't any reason 
-	  * to define separate states for each one. Therefore, any other state encounters one, the State switches to State.INIT,
-	  * where a token indicating corresponding to that character is returned. Every time a character is hit that changes
-	  * the state, i is decremented so that the next call to nextToken() so that the character that changed the state
-	  * isn't skipped over.
+	  * to define separate states for each one. Therefore, when such a character is encountered, the State switches to State.INIT,
+	  * and a token indicating corresponding to that character is returned. 
+      * 
+      * Every time a character is found that changes the state, i(the pointer that stores where the tokenizer is in the String) is 
+      * decremented so that the next call to nextToken() so that the character that changed the state isn't skipped over.
 	  * 
 	  * When the end of the String is reached, repeated calls to nextToken() return Tok.EOState. 
 	  * 
@@ -168,7 +171,7 @@ class Tokenizer {
 					i--;			//allow repeated calls to return Tok.EOS
 					state = State.DONE;	
 				}
-				else if (Character.isWhitespace(c)) continue; //whitespace between operators or punctuation is insignificant
+				else if (Character.isWhitespace(c)) continue; //ignore whitespace between operators or punctuation 
 				else return Tok.INVALID;	
 				break;
 			}
@@ -178,7 +181,7 @@ class Tokenizer {
 					return Tok.INVALID;
 				}
 				else if (Character.isDigit(c)) { 
-					numVal = 10*numVal + (c -'0'); //>0	//add digit to the number
+					numVal = 10*numVal + (c -'0'); //>0	//add the digit to the number
 				}
 				else if (isOp(c) || c =='(' || c==')' || c==',' || Character.isWhitespace(c) || c==0) {
 					if (c==0) state = State.DONE;
@@ -222,6 +225,7 @@ class Tokenizer {
 					if (isFunc(strVal)) return Tok.FUNCTION;
 					if (strVal.equals( "sum" )) return Tok.SUMMATION;
 					if (strVal.equals( "prod" )) return Tok.PRODUCT;
+                    if (strVal.equals( "rex" )) return Tok.REX;
                     if (strVal.equals( "e" )) return Tok.E;
                     if (strVal.equals( "pi")) return Tok.PI;
                     if (strVal.equals( "c")) return Tok.C;
@@ -248,9 +252,8 @@ class Tokenizer {
  * 2. An argument Node but no left or right child (a function)
  * 3. No argument and no left or right child (a leaf node)
  * 
- * The method eval() takes a HashMap that is passed in from outside that maps variable names to 
- * values. To evaluate the Node at a specific value, configure in the HashMap each of the values corresponding 
- * to the variables of that node, then pass the HashMap to eval. This is much more efficient 
+ * The method eval(argList) takes a HashMap that is passed in from outside which maps variable names to 
+ * values. This HashMap serves as the evaluation context. This is much more efficient 
  * for evaluating multivariable functions(such as the sums and products) than the iterate-and-replace method, which requires creating, 
  * storing, and looping through a new Node tree upon every iteration.
  * 
@@ -258,20 +261,12 @@ class Tokenizer {
 abstract class Node {
 	Node left; 
 	Node right;
-    public static HashMap<String, Double> argList = new HashMap<String, Double>();
 	static final int NUM_SPACES = 2;
 
-	abstract double eval() throws Exception; 
+	abstract double eval(HashMap<String, Double> argList) throws Exception; 
+    public double eval() throws Exception { return 0; }
 
     void print() { System.out.println(this.toString()); }
-
-    void printArgList() {
-        Set<String> variables = argList.keySet();
-        System.out.print("Variables: ");  
-        for (String v : variables) System.out.print(v + " ");
-        System.out.println();
-    }
-	
 }
 
 class TermList extends Node {
@@ -291,10 +286,10 @@ class TermList extends Node {
         termv.add(term);
     }
 
-    public double eval() throws Exception {
+    public double eval(HashMap<String, Double> argList) throws Exception {
         double result = 0.0;
         for (int i=0; i<termv.size(); i++) {
-            double d = termv.get(i).eval();
+            double d = termv.get(i).eval(argList);
             if (signv.get(i).intValue() == -1) d *= -1;
             result += d;
         }
@@ -315,7 +310,8 @@ class TermList extends Node {
             }
             init = false;
             String termstring = termv.get(i).toString();
-            if (termstring.length() > 3 && negativetermfound) result += "(" + termstring + ")";               else result += termstring;
+            if (termstring.length() > 3 && negativetermfound) result += "(" + termstring + ")";               
+            else result += termstring;
         }
         return result;
     }
@@ -325,16 +321,16 @@ class TermList extends Node {
 class OpNode extends Node { 
 	Op op;
 
-	public double eval() throws Exception { 		
+	public double eval(HashMap<String, Double> argList) throws Exception { 		
 		switch(op) { 
-			case Plus: return left.eval() + right.eval();
-			case Minus: return left.eval() - right.eval();
-			case Times: return left.eval() * right.eval();
+			case Plus: return left.eval(argList) + right.eval(argList);
+			case Minus: return left.eval(argList) - right.eval(argList);
+			case Times: return left.eval(argList) * right.eval(argList);
 			case Divide: {
-				if (left.eval() == 0) throw new Exception("division by 0");
-					return left.eval() / right.eval();
+				if (left.eval(argList) == 0) throw new Exception("division by 0");
+					return left.eval(argList) / right.eval(argList);
 				}
-			case Hat: return Math.pow(left.eval(), right.eval());
+			case Hat: return Math.pow(left.eval(argList), right.eval(argList));
 			default: throw new Exception("invalid operator");
 		}
 	}
@@ -360,8 +356,8 @@ class VarNode extends Node {
 
 	public String toString() { return name; }
 	
-	public double eval() throws Exception {
-		Double dd = argList.get( name ); //gets the value corresponding to the Node's variable.
+	public double eval(HashMap<String, Double> argList) throws Exception {
+		Double dd = argList.get( name ); //gets the value corresponding to the variable.
 		if (dd==null)  
 			throw new Exception( "Variable " + name + " has no value mapping" );
         return dd.doubleValue();	
@@ -371,8 +367,6 @@ class VarNode extends Node {
 		this.name = name; 
 		left = null;
 		right = null; 
-        if (!argList.containsKey(name))
-            argList.put(name, null); 
 	}
 
 }
@@ -381,7 +375,9 @@ class NumNode extends Node {
 	double val;
 
 	public String toString() { return Double.toString(val); }
+
 	public double eval() throws Exception { return val; }
+	public double eval(HashMap<String, Double> argList) throws Exception { return val; }
 
 	NumNode(double val) { 
 		this.val = val; 
@@ -397,30 +393,33 @@ class FuncNode extends Node {
 	void printFuncSpaces() { 
 		for (int i=0; i<name.toString().length(); i++) System.out.print(" ");
 	}
-	/*	
-	void print(int d) { //overides print(d) in node.
-		printSpaces(d);
-		System.out.println(name + "[");
-		argExpr.print(d + name.toString().length() + 1);
-		printSpaces(d);
-		System.out.println("]");
-	}*/
 		
-	public double eval() throws Exception {
-		double d = argExpr.eval();
+	public double eval(HashMap<String, Double> argList) throws Exception {
+		double d = argExpr.eval(argList);
 		switch (name) { 
-		case Sin: return Math.sin( d );
-		case Cos: return Math.cos( d );
-		case Tan: return Math.tan( d );
-		case Exp: return Math.pow( Math.E, d );
-		case Sqrt: return Math.sqrt( d );
-        case Abs: return Math.abs(d) ;
-		case Log: return Math.log10( d );			
-        case Ln: return Math.log( d );
-		case Arcsin: return Math.asin( d );
-        case Arccos: return Math.acos( d );
-        case Arctan: return Math.atan( d );
-        default: throw new Exception( "UNRECOGNIZED_FUNCTION" ); 
+            case Sin: return Math.sin( d );
+            case Cos: return Math.cos( d );
+            case Tan: return Math.tan( d );
+            case Exp: return Math.pow( Math.E, d );
+            case Sqrt: return Math.sqrt( d );
+            case Abs: return Math.abs(d) ;
+            case Log: return Math.log10( d );			
+            case Ln: return Math.log( d );
+            case Arcsin: return Math.asin( d );
+            case Arccos: return Math.acos( d );
+            case Arctan: return Math.atan( d );
+            case Factorial: 
+                if ( d != Math.floor(d) ) 
+                    throw new Exception("FACTORIAL ON A NON-NATURAL");
+                if (d < 0) 
+                    throw new Exception("FACTORIAL ON A NEGATIVE INTEGER");
+                 double result = 1.0;
+                 while (d != 0) {
+                    result = result * d; 
+                    d--;
+                 }
+                return result;
+            default: throw new Exception( "UNRECOGNIZED_FUNCTION" ); 
 		}
 	}
 
@@ -432,6 +431,9 @@ class FuncNode extends Node {
 	}	
 
     public String toString() {
+        if (name == Func.Factorial) { 
+            return "[" + argExpr.toString() + "]!";
+        }
         return name + "[" + argExpr.toString() + "]";
     }
 
@@ -451,14 +453,13 @@ class SumNode extends Node {
 		this.limit = limit;
 	}
 	
-	public double eval() throws Exception {
+	public double eval(HashMap<String, Double> argList) throws Exception {
+        Double prev = argList.get( var );
 		double accum = 0;
 		for (int i=start; i<=limit; i++) {
-			if (!argList.containsKey(var))
-				throw new Exception( "Summation parameter missing in arg list" );
-            else  
-                argList.replace( var, new Double(i) );
-			    accum += argExpr.eval();
+            argList.replace( var, new Double(i) );
+            accum += argExpr.eval(argList);
+            if (prev != null) argList.replace(var, prev );
 		}
 		return accum;
     }
@@ -483,53 +484,200 @@ class ProdNode extends Node {
 		this.limit = limit;
 	}
 	
-	public double eval() throws Exception {
+	public double eval(HashMap<String, Double> argList) throws Exception {
 		double accum = 0;
+        Double prev = argList.get( var );
 		for (int i=start; i<=limit; i++) {
-			if (!argList.containsKey(var))
-				throw new Exception( "Summation parameter missing in arg list" );
-            else  
-                argList.replace( var, new Double(i) );
-			    accum *= argExpr.eval();
+            argList.replace( var, new Double(i) );
+            accum *= argExpr.eval(argList);
+            if (prev != null) argList.replace(var, prev);
         }
 		return accum;
     }
 
 }
 
-/**
-Grammar: 
-
-Expr ::= Term +- Term +- Term +- Term +- ...
-     ::= -Term +- Term +- Term +- Term +- ...
+//Riemann Explicit Formula as a sum of cosines
+class RexNode extends Node { 
     
-Term ::= '-' Power
-     ::= Power
-     ::= Power /* Term
+     Node argExpr;
+     int limit;
+     
+        //source = Andrew Odlyzko
+     public final double[] zeta_zeros = {
+        14.134725142,  21.022039639,  25.010857580,  30.424876126,  32.935061588,  //  10 
+        37.586178159,  40.918719012,  43.327073281,  48.005150881,  49.773832478,
 
-Power ::= '-' Factor
-      ::= Factor
-      ::= Factor ^ Power
+        52.970321478,  56.446247697,  59.347044003,  60.831778525,  65.112544048,  //  20
+        67.079810529,  69.546401711,  72.067157674,  75.704690699,  77.144840069,
 
-Factor ::= Number
-           Variable
-           '(' Expr ')'
-            Function '(' Expr ')'
-            Summation '(' Expr ',' Variable ',' Number ',' Number ')'
-            Product '(' Expr ',' Variable ',' Number ',' Number ')'
+        79.337375020,  82.910380854,  84.735492981,  87.425274613,  88.809111208,  //  30
+        92.491899271,  94.651344041,  95.870634228,  98.831194218, 101.317851006,
+
+        103.725538040, 105.446623052, 107.168611184, 111.029535543, 111.874659177,  //  40
+        114.320220915, 116.226680321, 118.790782866, 121.370125002, 122.946829294,
+
+        124.256818554, 127.516683880, 129.578704200, 131.087688531, 133.497737203,  //  50
+        134.756509753, 138.116042055, 139.736208952, 141.123707404, 143.111845808,
+
+        146.000982487, 147.422765343, 150.053520421, 150.925257612, 153.024693811,  //  60
+        156.112909294, 157.597591818, 158.849988171, 161.188964138, 163.030709687,
+
+        165.537069188, 167.184439978, 169.094515416, 169.911976479, 173.411536520,  //  70
+        174.754191523, 176.441434298, 178.377407776, 179.916484020, 182.207078484,
+
+        184.874467848, 185.598783678, 187.228922584, 189.416158656, 192.026656361,  //  80
+        193.079726604, 195.265396680, 196.876481841, 198.015309676, 201.264751944,
+
+        202.493594514, 204.189671803, 205.394697202, 207.906258888, 209.576509717,  //  90
+        211.690862595, 213.347919360, 214.547044783, 216.169538508, 219.067596349,
+
+        220.714918839, 221.430705555, 224.007000255, 224.983324670, 227.421444280,  // 100
+        229.337413306, 231.250188700, 231.987235253, 233.693404179, 236.524229666,
+
+        237.769820481, 239.555477573, 241.049157796, 242.823271934, 244.070898497,  // 110
+        247.136990075, 248.101990060, 249.573689645, 251.014947795, 253.069986748,
+
+        255.306256455, 256.380713694, 258.610439492, 259.874406990, 260.805084505,  // 120
+        263.573893905, 265.557851839, 266.614973782, 267.921915083, 269.970449024,
+
+        271.494055642, 273.459609188, 275.587492649, 276.452049503, 278.250743530,  // 130
+        279.229250928, 282.465114765, 283.211185733, 284.835963981, 286.667445363,
+
+        287.911920501, 289.579854929, 291.846291329, 293.558434139, 294.965369619,  // 140
+        295.573254879, 297.979277062, 299.840326054, 301.649325462, 302.696749590,
+
+        304.864371341, 305.728912602, 307.219496128, 310.109463147, 311.165141530,  // 150
+        312.427801181, 313.985285731, 315.475616089, 317.734805942, 318.853104256,
+
+        321.160134309, 322.144558672, 323.466969558, 324.862866052, 327.443901262,  // 160
+        329.033071680, 329.953239728, 331.474467583, 333.645378525, 334.211354833,
+
+        336.841850428, 338.339992851, 339.858216725, 341.042261111, 342.054877510,  // 170
+        344.661702940, 346.347870566, 347.272677584, 349.316260871, 350.408419349,
+
+        351.878649025, 353.488900489, 356.017574977, 357.151302252, 357.952685102,  // 180
+        359.743754953, 361.289361696, 363.331330579, 364.736024114, 366.212710288,
+
+        367.993575482, 368.968438096, 370.050919212, 373.061928372, 373.864873911,  // 190
+        375.825912767, 376.324092231, 378.436680250, 379.872975347, 381.484468617,
+
+        383.443529450, 384.956116815, 385.861300846, 387.222890222, 388.846128354,  // 200
+        391.456083564, 392.245083340, 393.427743844, 395.582870011, 396.381854223,
+
+        397.918736210, 399.985119876, 401.839228601, 402.861917764, 404.236441800,  // 210
+        405.134387460, 407.581460387, 408.947245502, 410.513869193, 411.972267804,
+
+        413.262736070, 415.018809755, 415.455214996, 418.387705790, 419.861364818,  // 220
+        420.643827625, 422.076710059, 423.716579627, 425.069882494, 427.208825084,
+
+        428.127914077, 430.328745431, 431.301306931, 432.138641735, 433.889218481,  // 230
+        436.161006433, 437.581698168, 438.621738656, 439.918442214, 441.683199201,
+
+        442.904546303, 444.319336278, 446.860622696, 447.441704194, 449.148545685,  // 240
+        450.126945780, 451.403308445, 453.986737807, 454.974683769, 456.328426689,
+
+        457.903893064, 459.513415281, 460.087944422, 462.065367275, 464.057286911,  // 250
+        465.671539211, 466.570286931, 467.439046210, 469.536004559, 470.773655478,
+
+        472.799174662, 473.835232345, 475.600339369, 476.769015237, 478.075263767,  // 260
+        478.942181535, 481.830339376, 482.834782791, 483.851427212, 485.539148129,
+
+        486.528718262, 488.380567090, 489.661761578, 491.398821594, 493.314441582,  // 270
+        493.957997805, 495.358828822, 496.429696216, 498.580782430, 500.309084942,
+
+        501.604446965, 502.276270327, 504.499773313, 505.415231742, 506.464152710,  // 280
+        508.800700336, 510.264227944, 511.562289700, 512.623144531, 513.668985555,
+
+        515.435057167, 517.589668572, 518.234223148, 520.106310412, 521.525193449,  // 290
+        522.456696178, 523.960530892, 525.077385687, 527.903641601, 528.406213852,
+
+        529.806226319, 530.866917884, 532.688183028, 533.779630754, 535.664314076,  // 300
+        537.069759083, 538.428526176, 540.213166376, 540.631390247, 541.847437121
+
+    };
+    
+    RexNode( Node argExpr, int limit ) {
+        this.argExpr = argExpr;
+        this.limit = (limit > 300 ? 300 : limit);
+        this.left = null;
+        this.right = null;
+    }
+
+    public double eval(HashMap<String, Double> argList) throws Exception {
+        double x = argExpr.eval( argList);
+        double result = 0.0;
+        for (int i=0; i<limit; i++) {
+            result += Math.cos( Math.log(x) * zeta_zeros[i] );
+        }
+        return (1 - 2*result/Math.sqrt(x) - 1 / (x*x*x-x)); //source = David Mumford's blog
+    }
+
+    public String toString() {
+        return "rex(" + argExpr.toString() + ", " + limit + ")";
+    }
+
+}
+
+/**
+The Grammar: 
+
+Expr ::= 
+         Term ± Term ± ...
+         -Term ± Term ± ...
+    
+Term ::= 
+        '-' Power
+     |  Power
+     |  Power * Term
+     |  Power / Term
+
+Power ::= 
+        '-' Factor
+     |  Factor
+     |  Factor ^ Power
+
+Factor ::= 
+        Number
+     |  Variable
+     |  '(' Expr ')'
+     |  Function '(' Expr ')'
+     |  Summation '(' Expr ',' Variable ',' Number ',' Number ')'
+     |  Product '(' Expr ',' Variable ',' Number ',' Number ')'
+     |  Rex '(' Number ')'
+
+Number ::= 
+        [0-9]\+
+     |  [0-9]\+ '.' [0-9]\+
+
+Function ::= 
+        'sin'
+     |  'cos' 
+     |  'tan' 
+     |  'exp' 
+     |  'abs' 
+     |  'sqrt' 
+     |  'log' 
+     |  'ln' 
+     |  'factorial' 
+     |  'arcsin' 
+     |  'arccos' 
+     |  'arctan' 
+
+Variable ::=
+        [a-z]\+  (excluding pi,g,c,e,G)
+    
 **/
 
 class Parser { 
 
     Tokenizer str;
     Node root;
-    static char[] chars = {
-    'x', '1', '+', '-', '*', '/', '(', ')', '^'
-    };    
-
+    HashMap<String, Double> argList;
 
     public Parser(Tokenizer str) { 
         this.str = str;
+        argList = new HashMap<String, Double>();
         try { 
             root = expr();
         }
@@ -548,7 +696,6 @@ class Parser {
         str.backToken = token;
     }
     
-
     public Node expr() throws Exception { 
 	System.out.println("expr -->");
 	    TermList termlist = new TermList();
@@ -616,7 +763,7 @@ System.out.println("    power-->");
 		Tok token = str.nextToken();
 		if (token == Tok.HAT) return new OpNode(Op.Hat, left, power());
 		else {
-			pushBack("p", token); //nextToken could be a +,-,*,/
+			pushBack("p", token); 
 			return left;
 		}
 	}
@@ -624,8 +771,11 @@ System.out.println("    power-->");
 	public Node factor() throws Exception { 
 System.out.println("      factor -->");
         Tok token = str.nextToken();
-		if (token == Tok.VARIABLE) return new VarNode(str.strVal);
-		if (token == Tok.NUMBER) return new NumNode(str.numVal);	
+		if (token == Tok.VARIABLE) {
+            argList.put(str.strVal, null);
+            return new VarNode(str.strVal);
+        }
+        if (token == Tok.NUMBER) return new NumNode(str.numVal);	
         if (token == Tok.E) return new NumNode(Math.E);
         if (token == Tok.PI) return new NumNode(Math.PI);
         if (token == Tok.G) return new NumNode(6.67408E-11);
@@ -670,7 +820,7 @@ System.out.println("      factor -->");
 			if (str.nextToken() != Tok.RPAR) 
 				throw new Exception("INVALID_FUNCTION_SYNTAX: expecting right paren");
 			
-			return new SumNode( argExpr, var.toString(), (int)start.eval(), (int)limit.eval() );
+			return new SumNode( argExpr, var.toString(), (int) start.eval(), (int)limit.eval() );
 		}
 		if (token == Tok.PRODUCT) {
 			// expect:  '(' Expr ',' Var ',' Number ',' Number ')' 
@@ -706,6 +856,22 @@ System.out.println("      factor -->");
 			
 			return new ProdNode( argExpr, var.toString(), (int)start.eval(), (int)limit.eval() );
 		}
+        if (token == Tok.REX) {
+            //expect: '(' Number ')'
+
+            if (str.nextToken() != Tok.LPAR) 
+                throw new Exception( "INVALID_FUNCTION_SYNTAX: expecting left paren");
+
+            Node argExpr = expr();
+            if (str.nextToken() != Tok.COMMA) 
+                throw new Exception("INVALID_FUNCTION_SYNTAX: expecting comma");
+
+            Node limit = factor(); //expecting number
+            if (!(limit instanceof NumNode))
+				throw new Exception("INVALID_FUNCTION_SYNTAX: expecting limit value, a number");
+
+            return new RexNode(argExpr, (int)limit.eval() );
+        }
 		if (token == Tok.LPAR) {	//Parenthesis without a function 
             Node interior = expr();	 //Expr inside '(' and ') 
 			Tok extra = str.nextToken();
@@ -717,7 +883,11 @@ System.out.println("      factor -->");
         return null; 
 	}	
 
+    //not used
 	public static String genRandomTest(int length) throws Exception { 
+        char[] chars = {
+            'x', '1', '+', '-', '*', '/', '(', ')', '^'
+        };    
         String str = "";    
         for (int i=0; i<length; i++) { 
             int pos = (int) (chars.length * Math.random());
@@ -731,26 +901,34 @@ System.out.println("      factor -->");
 public class Function { 
 
     Node func;
-    String s;
+    String in;
+    public HashMap<String, Double> argList; 
+
     static double CONTINUITY_INCREMENT = .000001;
     static double MARGIN_OF_ERROR = .01;
 
-    public Function(String s) { 
-        Tokenizer T = new Tokenizer(s);
+    public Function(String in) { 
+        Tokenizer T = new Tokenizer(in);
         Parser P = new Parser(T);
         this.func = P.root;
-        this.s = s;
+        this.in = in;
+        argList = P.argList;
     }
 
     public void print() { func.print(); }
     
-    public void printArgList() { func.printArgList(); } 
-
-    public String toString() { return s; }
+    public void printArgList() { 
+        Set<String> variables = argList.keySet();
+        System.out.print("Variables: ");  
+        for (String v : variables) System.out.print(v + " ");
+        System.out.println();
+    }
+	
+    public String toString() { return in; }
 
     public double value(double x) throws Exception { 
-        func.argList.replace("x", x);
-        return func.eval(); 
+        argList.put("x", x);
+        return func.eval(argList); 
     }
 
    public boolean isContinuous(double x) {

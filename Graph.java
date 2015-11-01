@@ -13,12 +13,14 @@ import java.awt.event.ItemEvent;
 import java.awt.event.ItemListener;
 import java.awt.event.WindowEvent;
 import java.awt.event.WindowListener;
+import java.awt.event.ActionListener;
+import java.awt.event.ActionEvent;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Scanner;
 
 class GraphController implements ComponentListener, WindowListener, KeyListener, 
-                                ItemListener, MouseListener, MouseMotionListener {
+                                ItemListener, MouseListener, MouseMotionListener, ActionListener {
 
     Graph graph;
     TextField inputbar;
@@ -28,22 +30,26 @@ class GraphController implements ComponentListener, WindowListener, KeyListener,
     TextField ymaxbar;
     TextField xincrementbar;
     TextField yincrementbar;
+    Button helpbutton;
+    Dialog helpdialog;
 
     String funcString = "";
     Function func;
     Frame frame;
 
     static double MOUSE_CURVE_PROXIMITY_FACTOR = 5; //pixels on screen 
-    static double DRAG_SENSITIVITY = 1;
+    static double DRAG_SENSITIVITY_COEFFICIENT = 1;
 
     Point target = new Point();
 
+    //for dragging the curve around
     int mx1;
     int my1;
 
     GraphController(Graph graph, Frame frame, TextField inputbar,TextField xminbar,
                      TextField xmaxbar, TextField yminbar, TextField ymaxbar,
-                     TextField xincrementbar, TextField yincrementbar) {
+                     TextField xincrementbar, TextField yincrementbar, 
+                     Button helpbutton, Dialog helpdialog) {
         this.graph = graph;
         this.frame = frame;
         this.inputbar = inputbar;
@@ -53,6 +59,8 @@ class GraphController implements ComponentListener, WindowListener, KeyListener,
         this.ymaxbar = ymaxbar;
         this.xincrementbar = xincrementbar;
         this.yincrementbar = yincrementbar;
+        this.helpbutton = helpbutton;
+        this.helpdialog = helpdialog;
         funcString = "";
 
         inputbar.setText("x");
@@ -103,7 +111,6 @@ class GraphController implements ComponentListener, WindowListener, KeyListener,
                     graph.setFunction(new Function(inputbar.getText()));
                     funcString = inputbar.getText();
                 }
-                graph.computePoints();
             }
 
             graph.render();
@@ -116,7 +123,7 @@ class GraphController implements ComponentListener, WindowListener, KeyListener,
         int mx = e.getX();
         int my = e.getY();
 
-System.out.println("mx="+mx+", my="+my);
+//System.out.println("mx="+mx+", my="+my);
 
         if (graph.func != null) {
             double px = graph.renderXToMathematicalX(mx);
@@ -145,32 +152,42 @@ System.out.println("mx="+mx+", my="+my);
     public void mouseDragged(MouseEvent e) {
         int mx2 = e.getX();
         int my2 = e.getY();
-        double xshift = DRAG_SENSITIVITY * (graph.renderXToMathematicalX(mx1) - graph.renderXToMathematicalX(mx2));
-        double yshift = DRAG_SENSITIVITY * (graph.renderYToMathematicalY(my1) - graph.renderYToMathematicalY(my2));
+        double xshift = DRAG_SENSITIVITY_COEFFICIENT * (graph.renderXToMathematicalX(mx1) - graph.renderXToMathematicalX(mx2));
+        double yshift = DRAG_SENSITIVITY_COEFFICIENT * (graph.renderYToMathematicalY(my1) - graph.renderYToMathematicalY(my2));
         mx1 = mx2;
         my1 = my2;
         graph.updateViewingWindow(xshift, yshift);
         graph.setLabeledPointCoordinates( graph.mathematicalXToRenderX(mx2), graph.mathematicalYToRenderY(my2) );
-        if (graph.func != null) graph.computePoints();
         graph.render();
     }
 
     public void itemStateChanged(ItemEvent e) {
         int state = e.getStateChange();
         if (state == ItemEvent.SELECTED) {
-        System.out.println("checkbox checked!");
             graph.setTickLabelsShowing(true); 
         }
         else {
             graph.setTickLabelsShowing(false); 
-            System.out.println("checkbox unchecked");
         }
         graph.render();
     }
 
     public void windowClosing(WindowEvent e) {
-        frame.dispose();
-        System.exit(0);
+        if (e.getSource() == frame) {
+            frame.dispose();
+            System.exit(0);
+        }
+        if (e.getSource() == helpdialog) {
+            helpdialog.setVisible(false);
+        }
+    }
+
+    public void actionPerformed(ActionEvent e) {
+        if (e.getSource() == helpbutton) { 
+            System.out.println("helpbuttonpressed!");
+            helpdialog.setSize(800,300);
+            helpdialog.setVisible(true);
+        }
     }
 
     //unimplemented methods
@@ -210,6 +227,9 @@ public class Graph extends Canvas {
     Label yincrementbarlabel = new Label();
     Label tickmarklabelscheckboxlabel = new Label();
     Checkbox tickmarklabelscheckbox = new Checkbox();
+    Button helpbutton = new Button();
+    Dialog helpdialog = new Dialog(frame);
+    TextArea helptext = new TextArea();
 
     Function func;
     HashMap<String, Double> argList;
@@ -217,8 +237,9 @@ public class Graph extends Canvas {
 
     int WIDTH; //canvas width
     int HEIGHT; //canvas height
-    int RWIDTH; //width of render area
-    int RHEIGHT; //height of render area
+
+    int RWIDTH; //render area width
+    int RHEIGHT; //render area height
 
     boolean hoveringovercurve = false;
     boolean ticklabelsenabled = false;
@@ -231,8 +252,6 @@ public class Graph extends Canvas {
     double xmax = 5;
     double ymin = -5;
     double ymax = 5;
-    double[] xpoints;
-    double[] ypoints;
     double xrange = Math.abs(xmax - xmin);
     double yrange = Math.abs(ymax - ymin);
     double cx = 0;
@@ -240,7 +259,10 @@ public class Graph extends Canvas {
     double xincrement = 1;
     double yincrement = 1;
 
-    static int n=10000;
+    ArrayList<ArrayList<Integer>> xpoints = new ArrayList<ArrayList<Integer>>();
+    ArrayList<ArrayList<Integer>> ypoints = new ArrayList<ArrayList<Integer>>();
+
+    static int NUM_POINTS = 10000;
 
     static final int TARGET_STRING_HORIZONTAL_OFFSET = 10;
     static final int TARGET_STRING_VERTICAL_OFFSET = 10;
@@ -255,16 +277,29 @@ public class Graph extends Canvas {
     static final int TICKMARK_SIZE = 10; //in pixels
     static final int TICKMARK_LABELS_CHARACTER_HEIGHT = 8;
     static final int CHARACTER_WIDTH = 6;
+
     static final Color labeledpointcolor = Color.BLUE;
 
     NumberFormat nf = NumberFormat.getInstance();
     GraphController G;
 
+    static String helpmessage = 
+        "Simple java 2D Grapher\n\n"+
+        "Can currently graph:\n1) Functions of x\n2) Summation/product expressions.\n\n"+
+        "Precedence: \n^ * / : right associative\n  + - : left associative\n\n" +
+        "Syntax for sum and product expressions:\n"+
+        "  'sum'    |    'prod'    '('    expression (in terms of variables x and/or summation variable)    ','    summation variable    ','    start    ','    end    ')'\n\n" +
+        
+        "Constants can be handled in the y= bar but not in any other bars. \n\n"+
+        "The following constants are recognized: e, pi, g, G, c\n\n" + 
+        "The following built-in functions are recognized: sin, cos, exp, tan, sqrt, log, ln, abs, factorial, arcsin, arccos, arctan\n\n" + 
+        "Function syntax:\n function_name\t'('\texpr\t')'";  
+
     public Graph() {
 
         super();
 
-        assembleFrame();
+        assembleLayout();
 
         WIDTH = this.getWidth();
         HEIGHT = this.getHeight();
@@ -275,8 +310,9 @@ public class Graph extends Canvas {
         this.createBufferStrategy(2);
         strategy = this.getBufferStrategy();
 
-        G = new GraphController(this, frame,
-                inputbar, xminbar, xmaxbar, yminbar, ymaxbar, xincrementbar, yincrementbar);
+        G = new GraphController(this, frame, inputbar, xminbar,
+                                xmaxbar, yminbar, ymaxbar, xincrementbar, 
+                                yincrementbar, helpbutton, helpdialog);
 
         inputbar.addKeyListener(G);
         xminbar.addKeyListener(G);
@@ -289,12 +325,14 @@ public class Graph extends Canvas {
         frame.addComponentListener(G);
         this.addMouseMotionListener(G);
         this.addMouseListener(G);
+        helpbutton.addActionListener(G);
+        helpdialog.addWindowListener(G);
         frame.addWindowListener(G);
 
         render();
    }
 
-   private void assembleFrame() {
+   private void assembleLayout() {
 
         frame.setLayout(new GridBagLayout());
         GridBagConstraints oc = new GridBagConstraints();
@@ -337,7 +375,7 @@ public class Graph extends Canvas {
         bottom.add(inputbar, bc);
 
         Container tablecontainer = new Container();
-        bc.gridx = 0;
+        bc.gridx = 1;
         bc.gridy = 1;
         bc.gridwidth = 6;
         bc.gridheight = 2;
@@ -410,9 +448,8 @@ public class Graph extends Canvas {
         ic.gridx = 2;
         ic.gridy = 1;
         tablecontainer.add(ymaxbarlabel, ic);
-        ic.gridx = 3;
-        ic.gridy = 1;
-        tablecontainer.add(ymaxbar, ic);
+        ic.gridx = 3; ic.gridy = 1; 
+        tablecontainer.add(ymaxbar, ic); 
         ymaxbarlabel.setPreferredSize(new Dimension(50,20));
         ymaxbar.setPreferredSize(new Dimension(100,20));
         ymaxbar.setMinimumSize(new Dimension(100,20));
@@ -427,6 +464,19 @@ public class Graph extends Canvas {
         yincrementbarlabel.setPreferredSize(new Dimension(100,20));
         yincrementbar.setPreferredSize(new Dimension(100,20));
         yincrementbar.setMinimumSize(new Dimension(100,20));
+
+        helpbutton.setLabel("help");
+        ic.gridx = 5;
+        ic.gridy = 1;
+        ic.gridwidth = 3;
+        ic.insets = new Insets(0, 30, 0, 0);
+        tablecontainer.add(helpbutton, ic);
+        helpbutton.setPreferredSize(new Dimension(50,20));
+        helpbutton.setMinimumSize(new Dimension(50,20));
+        ic.gridwidth = 1;
+
+        helptext.insert(helpmessage, 0);
+        helpdialog.add(helptext);
 
         frame.setSize(600,600);
         frame.setVisible(true);
@@ -469,29 +519,6 @@ public class Graph extends Canvas {
        xrange = Math.abs(xmax - xmin);
        yrange = Math.abs(ymax - ymin);
    }
-
-   public void computePoints() {
-      xpoints = new double[n+1];
-      ypoints = new double[n+1];
-      for (int i = 0; i <= n; i++) {
-
-            xpoints[i] = xmin + i * xrange / n;
-
-            try {
-                ypoints[i] = func.value(xpoints[i]);
-            }
-            catch(Exception ex) {
-                ex.printStackTrace();
-            }
-
-      }
-      //System.out.println("xmin="+xmin+"\nxmax="+xmax+"\nymin="+ymin+"\nymax="+ymax);
-      // for (int i=0; i<=n; i++) { System.out.println("xpoints[i]="+xpoints[i]+", ypoints[i]="+ypoints[i]); }
-      //System.out.println(" | | | | | | | | |");
-      /*for (int i=0; i<=n; i++) { System.out.println("xpoints[i]="+
-                              renderXToMathematicalX( mathematicalXToRenderX(xpoints[i]) )+", ypoints[i]="+
-                             renderYToMathematicalY( mathematicalYToRenderY(ypoints[i]) ) );  }  */
-   }
    
    public void render() {
         do { 
@@ -514,7 +541,7 @@ public class Graph extends Canvas {
       if (func != null) paintCurve(g);
    } 
    
-    public void paintAxesAndTickmarks(Graphics g) {
+   public void paintAxesAndTickmarks(Graphics g) {
         
         g.setColor(Color.BLACK);
 
@@ -603,52 +630,62 @@ public class Graph extends Canvas {
 
     public void paintCurve(Graphics g) {
 
-            ArrayList<Integer> xcurrentinterval = new ArrayList<Integer>();
-            ArrayList<Integer> ycurrentinterval = new ArrayList<Integer>();
+      ArrayList<Integer> currxpoints = new ArrayList<Integer>();
+      ArrayList<Integer> currypoints = new ArrayList<Integer>();
+      
+      for (int i = 0; i <= NUM_POINTS; i++) {
 
-            for (int i=0; i<=n; i++) {
-                int rx = mathematicalXToRenderX( xpoints[i] );    
-                int ry = mathematicalYToRenderY( ypoints[i] );    
-                if ( !(func.isContinuous( xpoints[i] )) ) {
-            //        System.out.println("discontinuily at x="+xpoints[i]);
-                    g.drawPolyline(toIntArray(xcurrentinterval), toIntArray(ycurrentinterval), xcurrentinterval.size() );
-                    xcurrentinterval.clear();
-                    ycurrentinterval.clear();
-                }
-             //   else { System.out.println("function is continuous at x="+xpoints[i]); }
-                xcurrentinterval.add(rx);
-                ycurrentinterval.add(ry);
-            }
-            g.drawPolyline(toIntArray(xcurrentinterval), toIntArray(ycurrentinterval), xcurrentinterval.size() );
+            try {
 
-            if (hoveringovercurve) {
-            
-                g.setColor(labeledpointcolor);
-
-                g.fillOval( mathematicalXToRenderX(lx) - targetRadius, mathematicalYToRenderY(ly) - targetRadius ,
-                    2*targetRadius, 2*targetRadius);
-
-                String targetstring = "("+nf.format(lx)+", "+nf.format(ly)+")";
+                double x = xmin + i * xrange / NUM_POINTS;
                 
-                g.drawString(targetstring, mathematicalXToRenderX(lx) + TARGET_STRING_HORIZONTAL_OFFSET, 
-                              mathematicalYToRenderY(ly) + TARGET_STRING_VERTICAL_OFFSET);
-            }
-    }
-    
+                if ( !func.isContinuous(x)  ||
+                    mathematicalYToRenderY(func.value(x)) <= VERTICAL_BORDER_OFFSET ||
+                    mathematicalYToRenderY(func.value(x)) >= HEIGHT - VERTICAL_BORDER_OFFSET ) {
 
+                       g.drawPolyline(toIntArray(currxpoints), toIntArray(currypoints), currxpoints.size());
+                       currxpoints.clear();
+                       currypoints.clear();
+                }
+
+                else {
+                    currxpoints.add( mathematicalXToRenderX(x) );
+                    currypoints.add( mathematicalYToRenderY(func.value(x)) );
+                }
+
+            } 
+            catch (Exception e) {
+                e.printStackTrace();
+            }
+      }
+      g.drawPolyline(toIntArray(currxpoints), toIntArray(currypoints), currxpoints.size());
+
+        if (hoveringovercurve) {
+        
+            g.setColor(labeledpointcolor);
+
+            g.fillOval( mathematicalXToRenderX(lx) - targetRadius, mathematicalYToRenderY(ly) - targetRadius ,
+                2*targetRadius, 2*targetRadius);
+
+            String targetstring = "("+nf.format(lx)+", "+nf.format(ly)+")";
+            
+            g.drawString(targetstring, mathematicalXToRenderX(lx) + TARGET_STRING_HORIZONTAL_OFFSET, 
+                          mathematicalYToRenderY(ly) + TARGET_STRING_VERTICAL_OFFSET);
+        }
+    }
+   
+   //convert from mathematical coordinates to coordinates on the canvas
     public int mathematicalXToRenderX(double px) {
        	int rx = (int) (HORIZONTAL_BORDER_OFFSET + RWIDTH / 2.0 + (px - cx) * (RWIDTH / xrange) );
-//System.out.println(gx);
         return rx;
     }
 
     public int mathematicalYToRenderY(double py) {
-// System.out.println("HEIGHT="+HEIGHT+"\ncy="+cy+"\npy="+py+"\nyscale="+yscale+"\n");
         int ry = (int) (VERTICAL_BORDER_OFFSET + RHEIGHT / 2.0 + (cy - py) * (RHEIGHT / yrange) );
-//System.out.println(gy);
         return ry;
     }
 
+    //convert back
     public double renderYToMathematicalY(int ry) {
         double py = cy - (yrange / RHEIGHT) * (ry - VERTICAL_BORDER_OFFSET - RHEIGHT / 2.0 ); 
         return py;
@@ -658,17 +695,8 @@ public class Graph extends Canvas {
         double px = (xrange / RWIDTH) * (rx - HORIZONTAL_BORDER_OFFSET - RWIDTH / 2.0 ) + cx;
         return px;
     }
-
-    public double canvasXToMathematicalX(int sx) {
-        double px = (xrange / WIDTH) * (sx - WIDTH / 2.0 ) + cx;
-        return px;
-    }
-
-    public double canvasYToMathematicalY(int sy) { 
-        double py = cy - (yrange / HEIGHT) * (sy - HEIGHT / 2.0 ); 
-        return py;
-    }
-
+    
+    //helper
     public int[] toIntArray(ArrayList<Integer> A) {
         int[] ret = new int[A.size()];
         for (int i=0; i<A.size(); i++) {
@@ -691,7 +719,7 @@ public class Graph extends Canvas {
                             KeyEvent.VK_ENTER,
                             '\n' ));
             try { 
-                Thread.sleep(1);
+                Thread.sleep(5);
             }
             catch (InterruptedException e) {
                 e.printStackTrace();
