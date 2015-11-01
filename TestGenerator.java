@@ -1,5 +1,5 @@
 
-public class Generator {
+public class TestGenerator {
 
     String number() {
         return new Double(100*Math.random()).toString();
@@ -83,7 +83,7 @@ public class Generator {
       }
 
   // now some random expressions
-      Generator g = new Generator();
+      TestGenerator g = new TestGenerator();
       for (int i=0; i<10; i++) {
           System.out.println( g.expr() );
       }
