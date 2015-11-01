@@ -57,9 +57,9 @@ public class TestGenerator {
 
    public static void main(String[] args) {
        int primes[] = {
-     2,     3,     5,     7,    11,    13,    17,    19,    23,    29,
-      31,    37,    41,    43,    47,    53,    59,    61,    67,    71,
-       73,    79,    83,    89,    97,   101,   103,   107,   109,   113,
+         2,     3,     5,     7,    11,    13,    17,    19,    23,    29,
+        31,    37,    41,    43,    47,    53,    59,    61,    67,    71,
+        73,    79,    83,    89,    97,   101,   103,   107,   109,   113,
        127,   131,   137,   139,   149,   151,   157,   163,   167,   173,
        179,   181,   191,   193,   197,   199,   211,   223,   227,   229,
        233,   239,   241,   251,   257,   263,   269,   271,   277,   281,
@@ -69,20 +69,20 @@ public class TestGenerator {
        467,   479,   487,   491,   499,   503,   509,   521,   523,   541
        };
           
-      // basic stress testing
+      // basic stress testing: simple polynomials
       String result = "";
           for (int i=0; i<20; i++) {
           result += " + cos("+primes[i]+"*x)";
           System.out.println(result);
       }
       result = "";
-      for (int i=0; i<20; i++) {
+      for (int i=0; i<40; i++) {
           String s = (Math.random() < 0.5 ? " + " : " - ");
           result += (""+s+primes[i]+"*x^"+i);
           System.out.println(result);
       }
 
-  // now some random expressions
+      // now some random expressions
       TestGenerator g = new TestGenerator();
       for (int i=0; i<10; i++) {
           System.out.println( g.expr() );

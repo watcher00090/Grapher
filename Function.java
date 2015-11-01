@@ -4,31 +4,31 @@ import java.util.Set;
 import java.lang.Integer;
 
 enum State { 
-	INIT, WORD, INTEGER, DOUBLE, DONE;
+    INIT, WORD, INTEGER, DOUBLE, DONE;
 }
 
 //Token Types. UNDEF = pushback token when nothing's been pushed back, token returned when state is unknown.
 enum Tok { 
-	LPAR, RPAR, PLUS, MINUS, TIMES, DIVIDE, HAT, NUMBER, VARIABLE, 
+    LPAR, RPAR, PLUS, MINUS, TIMES, DIVIDE, HAT, NUMBER, VARIABLE, 
     FUNCTION, SUMMATION, PRODUCT, REX, COMMA, EOS, UNDEF, INVALID, E, C, G, g, PI;
 }
 
 enum Func { 
-	Sin, Cos, Tan, Exp, Abs, Sqrt, Log, Ln, Undef, Factorial, Arcsin, Arccos, Arctan;	
+    Sin, Cos, Tan, Exp, Abs, Sqrt, Log, Ln, Undef, Factorial, Arcsin, Arccos, Arctan;    
 }
 
 enum Op { 
-	Plus, Minus, Times, Divide, Hat;
-	public String toString() {
-		switch(this) {
-		case Plus: return "+"; 
-		case Minus: return "-";
-		case Times: return "*";
-		case Divide: return "/";
-		case Hat: return "^";
-		default: return "INVALID_OPERATOR";
-		}
-	}
+    Plus, Minus, Times, Divide, Hat;
+    public String toString() {
+        switch(this) {
+        case Plus: return "+"; 
+        case Minus: return "-";
+        case Times: return "*";
+        case Divide: return "/";
+        case Hat: return "^";
+        default: return "INVALID_OPERATOR";
+        }
+    }
 }
 
 /*
@@ -42,77 +42,77 @@ enum Op {
 
 class Tokenizer { 
 
-	String in;
+    String in;
     char[] chars; 
-	int i;
-	double numVal; //start as an int, changes to double if a period is found.
-	String strVal; //stores function or variable names
-	State state;		
-	Tok backToken;
+    int i;
+    double numVal; //start as an int, changes to double if a period is found.
+    String strVal; //stores function or variable names
+    State state;        
+    Tok backToken;
 
-	Tokenizer(String in) { 
-		this.in  = in;
+    Tokenizer(String in) { 
+        this.in  = in;
         numVal = 0.0;
-		strVal = "";
-		i = 0;
-		state = State.INIT;
-		backToken = Tok.UNDEF;
-		chars = new char[in.length()+1];
-		for (int k=0; k<in.length(); k++){
-			chars[k]=in.charAt(k);	
-		}
-		chars[in.length()] = 0; //end with the null byte character, so the Tokenizer knows when the String is done.
-	}
+        strVal = "";
+        i = 0;
+        state = State.INIT;
+        backToken = Tok.UNDEF;
+        chars = new char[in.length()+1];
+        for (int k=0; k<in.length(); k++){
+            chars[k]=in.charAt(k);    
+        }
+        chars[in.length()] = 0; //end with the null byte character, so the Tokenizer knows when the String is done.
+    }
 
-	boolean isOp(char c) { 
-		if (c == '+') return true;
-		if (c == '-') return true;
-		if (c == '*') return true;
-		if (c == '/') return true;
-		if (c == '^') return true;
-		return false;
-	}
+    boolean isOp(char c) { 
+        if (c == '+') return true;
+        if (c == '-') return true;
+        if (c == '*') return true;
+        if (c == '/') return true;
+        if (c == '^') return true;
+        return false;
+    }
 
-	Tok getOp(char c) { 
-		if (c == '+') return Tok.PLUS;
-		if (c == '-') return Tok.MINUS;
-		if (c == '*') return Tok.TIMES;
-		if (c == '/') return Tok.DIVIDE;
-		if (c == '^') return Tok.HAT;
-		return Tok.UNDEF;
-	}
+    Tok getOp(char c) { 
+        if (c == '+') return Tok.PLUS;
+        if (c == '-') return Tok.MINUS;
+        if (c == '*') return Tok.TIMES;
+        if (c == '/') return Tok.DIVIDE;
+        if (c == '^') return Tok.HAT;
+        return Tok.UNDEF;
+    }
 
-	public boolean isFunc(String s) {
-		if (s.equals("sin")) return true;
-		if (s.equals("cos")) return true;
-		if (s.equals("exp")) return true;
-		if (s.equals("tan")) return true;
-		if (s.equals("sqrt")) return true;
-		if (s.equals("log")) return true; 
+    public boolean isFunc(String s) {
+        if (s.equals("sin")) return true;
+        if (s.equals("cos")) return true;
+        if (s.equals("exp")) return true;
+        if (s.equals("tan")) return true;
+        if (s.equals("sqrt")) return true;
+        if (s.equals("log")) return true; 
         if (s.equals("ln")) return true;
         if (s.equals("abs")) return true;
-		if (s.equals("factorial")) return true;
-		if (s.equals("arcsin")) return true;
+        if (s.equals("factorial")) return true;
+        if (s.equals("arcsin")) return true;
         if (s.equals("arccos")) return true;
         if (s.equals("arctan")) return true;
         return false;
-	}	
+    }    
 
-	Func getFunc(String s) throws Exception { 
-		if (s.equals("sin")) return Func.Sin;
-		if (s.equals("cos")) return Func.Cos;
-		if (s.equals("tan")) return Func.Tan;
-		if (s.equals("exp")) return Func.Exp;
-		if (s.equals("sqrt")) return Func.Sqrt;
+    Func getFunc(String s) throws Exception { 
+        if (s.equals("sin")) return Func.Sin;
+        if (s.equals("cos")) return Func.Cos;
+        if (s.equals("tan")) return Func.Tan;
+        if (s.equals("exp")) return Func.Exp;
+        if (s.equals("sqrt")) return Func.Sqrt;
         if (s.equals("abs")) return Func.Abs;
-		if (s.equals("log")) return Func.Log;
+        if (s.equals("log")) return Func.Log;
         if (s.equals("ln")) return Func.Ln;
-		if (s.equals("factorial")) return Func.Factorial;
+        if (s.equals("factorial")) return Func.Factorial;
         if (s.equals("arcsin")) return Func.Arcsin;
         if (s.equals("arccos")) return Func.Arccos;
         if (s.equals("arctan")) return Func.Arctan;
-		else throw new Exception("Function is undefined");
-	}
+        throw new Exception("Function is undefined");
+    }
 
     public Tok nextToken() { 
         Tok t = nextTokenContinued();
@@ -120,129 +120,134 @@ class Tokenizer {
         return t;
     }
 
-	 /**
-	  * Fewer States is desirable. Operators and punctuation are single characters, so there isn't any reason 
-	  * to define separate states for each one. Therefore, when such a character is encountered, the State switches to State.INIT,
-	  * and a token indicating corresponding to that character is returned. 
-      * 
-      * Every time a character is found that changes the state, i(the pointer that stores where the tokenizer is in the String) is 
-      * decremented so that the next call to nextToken() so that the character that changed the state isn't skipped over.
-	  * 
-	  * When the end of the String is reached, repeated calls to nextToken() return Tok.EOState. 
-	  * 
-	  * @return the next token in the input String.
-	  */
-	public Tok nextTokenContinued() { 
+    /**
+     * Fewer States is desirable. Operators and punctuation are single
+     * characters, so there isn't any reason to define separate states for each
+     * one. Therefore, when such a character is encountered, the State switches
+     * to State.INIT, and a token indicating corresponding to that character is
+     * returned.
+     * 
+     * Every time a character is found that changes the state, i(the pointer
+     * that stores where the tokenizer is in the String) is decremented so that
+     * the next call to nextToken() so that the character that changed the
+     * state isn't skipped over.
+     * 
+     * When the end of the String is reached, repeated calls to nextToken()
+     * return Tok.EOState.
+     * 
+     * @return the next token in the input String.
+     */
+    public Tok nextTokenContinued() { 
 
-		if (backToken !=Tok.UNDEF) {	
-			Tok result = backToken;  	
-			backToken = Tok.UNDEF;	
-			return result; 			
-		}
+        if (backToken !=Tok.UNDEF) {    
+            Tok result = backToken;      
+            backToken = Tok.UNDEF;    
+            return result;             
+        }
 
-		numVal = 0.0;
-		strVal = "";	
-		int p = 0;		//stores double decimal point digits.
-		state = State.INIT; //State is internal. So when nextToken is called, the computer shouldn't know what state it's in. 
+        numVal = 0.0;
+        strVal = "";    
+        int p = 0;    // stores double decimal point digits.
+        state = State.INIT; // State is internal. So when nextToken is called,
+                            // the code shouldn't know what state it's in. 
 
-		while (true) { 
+        while (true) { 
 
-			char c = chars[i++]; 
+            char c = chars[i++]; 
 
-			switch (state) { 
-			case INIT: { //Initial scanner state 
-				if (Character.isAlphabetic(c)) { 
-					state = State.WORD;
-					strVal+=c;	
-				}
-				else if (Character.isDigit(c)) { 
-					state = State.INTEGER;
-					numVal = 10*numVal + (c - '0') ; //add the digit to the number
-				}
-				else if (isOp(c)) return getOp(c);
-				else if (c == '(') {
+            switch (state) { 
+            case INIT: { //Initial scanner state 
+                if (Character.isAlphabetic(c)) { 
+                    state = State.WORD;
+                    strVal+=c;    
+                }
+                else if (Character.isDigit(c)) { 
+                    state = State.INTEGER;
+                    numVal = 10*numVal + (c - '0') ; //add the digit to the number
+                }
+                else if (isOp(c)) return getOp(c);
+                else if (c == '(') {
                     return Tok.LPAR;
-				}
+                }
                 else if (c == ')') return Tok.RPAR;
-				else if (c == '.') state = State.DOUBLE;
-				else if (c == ',') return Tok.COMMA;
-				else if (c == '!') return Tok.FUNCTION;
-				else if (c == 0) { //DONE must know that we've reached the end.
-					i--;			//allow repeated calls to return Tok.EOS
-					state = State.DONE;	
-				}
-				else if (Character.isWhitespace(c)) continue; //ignore whitespace between operators or punctuation 
-				else return Tok.INVALID;	
-				break;
-			}
-			case INTEGER: { 
-				if (Character.isAlphabetic(c)) { 
-//System.out.println("ERROR: S=NUMBER, c=letter");
-					return Tok.INVALID;
-				}
-				else if (Character.isDigit(c)) { 
-					numVal = 10*numVal + (c -'0'); //>0	//add the digit to the number
-				}
-				else if (isOp(c) || c =='(' || c==')' || c==',' || Character.isWhitespace(c) || c==0) {
-					if (c==0) state = State.DONE;
-					i--; //the next call to nextToken() needs to know the character.
-					return Tok.NUMBER;
-				}
-				else if (c == '.') {
-					state = State.DOUBLE;
-				}
-				else {
-					return Tok.INVALID;
-				}
-				break;
-			}
-			case DOUBLE: {
-				if (Character.isAlphabetic(c)) { 
-					return Tok.INVALID;
-//System.out.println("ERROR 003");	
-				}
-				else if (Character.isDigit(c)){ 
-					p++;
-					numVal = numVal + (c -'0')/(Math.pow(10, p)); //<0
-				}			
-				else if (c == '(' || c ==')' || c==',' || Character.isWhitespace(c) || isOp(c) || c==0) {
-					if (c==0) state = State.DONE;
-					i--; 
-					return Tok.NUMBER;
-				}
-				else { 
-					return Tok.INVALID;
-				}
-				break;
-			}
-			case WORD: {
-				if (Character.isAlphabetic(c) || Character.isDigit(c)) { 
-					strVal+=c;
-				}
-				else if (isOp(c) || c=='(' || c==')' || c==',' || Character.isWhitespace(c) || c==0) { 
-					i--;
-					if (c==0) state = State.DONE;
-					if (isFunc(strVal)) return Tok.FUNCTION;
-					if (strVal.equals( "sum" )) return Tok.SUMMATION;
-					if (strVal.equals( "prod" )) return Tok.PRODUCT;
+                else if (c == '.') state = State.DOUBLE;
+                else if (c == ',') return Tok.COMMA;
+                else if (c == '!') return Tok.FUNCTION;
+                else if (c == 0) { //DONE must know that we've reached the end.
+                    i--;            //allow repeated calls to return Tok.EOS
+                    state = State.DONE;    
+                }
+                else if (Character.isWhitespace(c)) continue; // ignore whitespace between
+                                                              // operators or punctuation 
+                else return Tok.INVALID;    
+                break;
+            }
+            case INTEGER: { 
+                if (Character.isAlphabetic(c)) { 
+                    return Tok.INVALID;
+                }
+                else if (Character.isDigit(c)) { 
+                    numVal = 10*numVal + (c -'0');    //add the digit to the number
+                }
+                else if (isOp(c) || c =='(' || c==')' || c==',' || Character.isWhitespace(c) || c==0) {
+                    if (c==0) state = State.DONE;
+                    i--; //the next call to nextToken() needs to know the character.
+                    return Tok.NUMBER;
+                }
+                else if (c == '.') {
+                    state = State.DOUBLE;
+                }
+                else {
+                    return Tok.INVALID;
+                }
+                break;
+            }
+            case DOUBLE: {
+                if (Character.isAlphabetic(c)) { 
+                    return Tok.INVALID;
+                }
+                else if (Character.isDigit(c)){ 
+                    p++;
+                    numVal = numVal + (c -'0')/(Math.pow(10, p));
+                }            
+                else if (c == '(' || c ==')' || c==',' || Character.isWhitespace(c) || isOp(c) || c==0) {
+                    if (c==0) state = State.DONE;
+                    i--; 
+                    return Tok.NUMBER;
+                }
+                else { 
+                    return Tok.INVALID;
+                }
+                break;
+            }
+            case WORD: {
+                if (Character.isAlphabetic(c) || Character.isDigit(c)) { 
+                    strVal+=c;
+                }
+                else if (isOp(c) || c=='(' || c==')' || c==',' || Character.isWhitespace(c) || c==0) { 
+                    i--;
+                    if (c==0) state = State.DONE;
+                    if (isFunc(strVal)) return Tok.FUNCTION;
+                    if (strVal.equals( "sum" )) return Tok.SUMMATION;
+                    if (strVal.equals( "prod" )) return Tok.PRODUCT;
                     if (strVal.equals( "rex" )) return Tok.REX;
                     if (strVal.equals( "e" )) return Tok.E;
                     if (strVal.equals( "pi")) return Tok.PI;
                     if (strVal.equals( "c")) return Tok.C;
                     if (strVal.equals( "G")) return Tok.G;
                     if (strVal.equals( "g")) return Tok.g;
-					return Tok.VARIABLE;
-				}
-				else {
-					return Tok.INVALID;
-				}
-				break;
-			}
-			case DONE: return Tok.EOS; 
-			default: return Tok.UNDEF; //undefined state error.
-			}
-		}	
-	}
+                    return Tok.VARIABLE;
+                }
+                else {
+                    return Tok.INVALID;
+                }
+                break;
+            }
+            case DONE: return Tok.EOS; 
+            default: return Tok.UNDEF; //undefined state error.
+            }
+        }    
+    }
 
 }
 
@@ -252,18 +257,20 @@ class Tokenizer {
  * 2. An argument Node but no left or right child (a function)
  * 3. No argument and no left or right child (a leaf node)
  * 
- * The method eval(argList) takes a HashMap that is passed in from outside which maps variable names to 
- * values. This HashMap serves as the evaluation context. This is much more efficient 
- * for evaluating multivariable functions(such as the sums and products) than the iterate-and-replace method, which requires creating, 
- * storing, and looping through a new Node tree upon every iteration.
+ * The method eval(argList) takes a HashMap that is passed in from outside
+ * which maps variable names to values. This HashMap serves as the
+ * evaluation context. This is much more efficient for evaluating
+ * multivariable functions(such as the sums and products) than the
+ * iterate-and-replace method, which requires creating, storing, and
+ * looping through a new Node tree upon every iteration.
  * 
  */
 abstract class Node {
-	Node left; 
-	Node right;
-	static final int NUM_SPACES = 2;
+    Node left; 
+    Node right;
+    static final int NUM_SPACES = 2;
 
-	abstract double eval(HashMap<String, Double> argList) throws Exception; 
+    abstract double eval(HashMap<String, Double> argList) throws Exception; 
     public double eval() throws Exception { return 0; }
 
     void print() { System.out.println(this.toString()); }
@@ -319,29 +326,29 @@ class TermList extends Node {
 }
 
 class OpNode extends Node { 
-	Op op;
+    Op op;
 
-	public double eval(HashMap<String, Double> argList) throws Exception { 		
-		switch(op) { 
-			case Plus: return left.eval(argList) + right.eval(argList);
-			case Minus: return left.eval(argList) - right.eval(argList);
-			case Times: return left.eval(argList) * right.eval(argList);
-			case Divide: {
-				if (left.eval(argList) == 0) throw new Exception("division by 0");
-					return left.eval(argList) / right.eval(argList);
-				}
-			case Hat: return Math.pow(left.eval(argList), right.eval(argList));
-			default: throw new Exception("invalid operator");
-		}
-	}
+    public double eval(HashMap<String, Double> argList) throws Exception {         
+        switch(op) { 
+            case Plus: return left.eval(argList) + right.eval(argList);
+            case Minus: return left.eval(argList) - right.eval(argList);
+            case Times: return left.eval(argList) * right.eval(argList);
+            case Divide: {
+                if (left.eval(argList) == 0) throw new Exception("division by 0");
+                    return left.eval(argList) / right.eval(argList);
+                }
+            case Hat: return Math.pow(left.eval(argList), right.eval(argList));
+            default: throw new Exception("invalid operator");
+        }
+    }
 
-	public OpNode(Op op, Node left, Node right) {
-		this.op = op;
-		this.left = left;
-		this.right = right;
-	}
+    public OpNode(Op op, Node left, Node right) {
+        this.op = op;
+        this.left = left;
+        this.right = right;
+    }
 
-	public String toString() { 
+    public String toString() { 
         String result = "";
         if (left != null) result += left.toString();
         result += op.toString();
@@ -352,58 +359,58 @@ class OpNode extends Node {
 }
 
 class VarNode extends Node { 
-	String name;
+    String name;
 
-	public String toString() { return name; }
-	
-	public double eval(HashMap<String, Double> argList) throws Exception {
-		Double dd = argList.get( name ); //gets the value corresponding to the variable.
-		if (dd==null)  
-			throw new Exception( "Variable " + name + " has no value mapping" );
-        return dd.doubleValue();	
-	}
-	
-	VarNode(String name) { 
-		this.name = name; 
-		left = null;
-		right = null; 
-	}
+    public String toString() { return name; }
+    
+    public double eval(HashMap<String, Double> argList) throws Exception {
+        Double dd = argList.get( name ); //gets the value corresponding to the variable.
+        if (dd==null)  
+            throw new Exception( "Variable " + name + " has no value mapping" );
+        return dd.doubleValue();    
+    }
+    
+    VarNode(String name) { 
+        this.name = name; 
+        left = null;
+        right = null; 
+    }
 
 }
 
 class NumNode extends Node { 
-	double val;
+    double val;
 
-	public String toString() { return Double.toString(val); }
+    public String toString() { return Double.toString(val); }
 
-	public double eval() throws Exception { return val; }
-	public double eval(HashMap<String, Double> argList) throws Exception { return val; }
+    public double eval() throws Exception { return val; }
+    public double eval(HashMap<String, Double> argList) throws Exception { return val; }
 
-	NumNode(double val) { 
-		this.val = val; 
-		left = null;
-		right = null;
-	}
+    NumNode(double val) { 
+        this.val = val; 
+        left = null;
+        right = null;
+    }
 }
 
 class FuncNode extends Node { 
-	Func name;
-	Node argExpr;
+    Func name;
+    Node argExpr;
 
-	void printFuncSpaces() { 
-		for (int i=0; i<name.toString().length(); i++) System.out.print(" ");
-	}
-		
-	public double eval(HashMap<String, Double> argList) throws Exception {
-		double d = argExpr.eval(argList);
-		switch (name) { 
+    void printFuncSpaces() { 
+        for (int i=0; i<name.toString().length(); i++) System.out.print(" ");
+    }
+        
+    public double eval(HashMap<String, Double> argList) throws Exception {
+        double d = argExpr.eval(argList);
+        switch (name) { 
             case Sin: return Math.sin( d );
             case Cos: return Math.cos( d );
             case Tan: return Math.tan( d );
             case Exp: return Math.pow( Math.E, d );
             case Sqrt: return Math.sqrt( d );
             case Abs: return Math.abs(d) ;
-            case Log: return Math.log10( d );			
+            case Log: return Math.log10( d );            
             case Ln: return Math.log( d );
             case Arcsin: return Math.asin( d );
             case Arccos: return Math.acos( d );
@@ -420,15 +427,15 @@ class FuncNode extends Node {
                  }
                 return result;
             default: throw new Exception( "UNRECOGNIZED_FUNCTION" ); 
-		}
-	}
+        }
+    }
 
-	public FuncNode( Func name, Node argExpr ) { 
-		this.name = name;
-		this.argExpr = argExpr;
-		left = null;
-		right = null;
-	}	
+    public FuncNode( Func name, Node argExpr ) { 
+        this.name = name;
+        this.argExpr = argExpr;
+        left = null;
+        right = null;
+    }    
 
     public String toString() {
         if (name == Func.Factorial) { 
@@ -440,28 +447,28 @@ class FuncNode extends Node {
 }
 
 class SumNode extends Node { 
-	
-	Node argExpr;
-	String var;
-	int start;	
-	int limit;
-	
-	SumNode( Node argExpr, String var, int start, int limit ) {
-		this.argExpr = argExpr;
-		this.var = var;
-		this.start = start;
-		this.limit = limit;
-	}
-	
-	public double eval(HashMap<String, Double> argList) throws Exception {
+    
+    Node argExpr;
+    String var;
+    int start;    
+    int limit;
+    
+    SumNode( Node argExpr, String var, int start, int limit ) {
+        this.argExpr = argExpr;
+        this.var = var;
+        this.start = start;
+        this.limit = limit;
+    }
+    
+    public double eval(HashMap<String, Double> argList) throws Exception {
         Double prev = argList.get( var );
-		double accum = 0;
-		for (int i=start; i<=limit; i++) {
+        double accum = 0;
+        for (int i=start; i<=limit; i++) {
             argList.replace( var, new Double(i) );
             accum += argExpr.eval(argList);
             if (prev != null) argList.replace(var, prev );
-		}
-		return accum;
+        }
+        return accum;
     }
 
     public String toString() {
@@ -471,28 +478,28 @@ class SumNode extends Node {
 }
 
 class ProdNode extends Node { 
-	
-	Node argExpr;
-	String var;
-	int start;	
-	int limit;
-	
+    
+    Node argExpr;
+    String var;
+    int start;    
+    int limit;
+    
     ProdNode( Node argExpr, String var, int start, int limit ) {
-		this.argExpr = argExpr;
-		this.var = var;
-		this.start = start;
-		this.limit = limit;
-	}
-	
-	public double eval(HashMap<String, Double> argList) throws Exception {
-		double accum = 0;
+        this.argExpr = argExpr;
+        this.var = var;
+        this.start = start;
+        this.limit = limit;
+    }
+    
+    public double eval(HashMap<String, Double> argList) throws Exception {
+        double accum = 0;
         Double prev = argList.get( var );
-		for (int i=start; i<=limit; i++) {
+        for (int i=start; i<=limit; i++) {
             argList.replace( var, new Double(i) );
             accum *= argExpr.eval(argList);
             if (prev != null) argList.replace(var, prev);
         }
-		return accum;
+        return accum;
     }
 
 }
@@ -503,7 +510,7 @@ class RexNode extends Node {
      Node argExpr;
      int limit;
      
-        //source = Andrew Odlyzko
+     // source : Andrew Odlyzko [http://www.dtc.umn.edu/~Odlyzko/zeta_tables/index.html]
      public final double[] zeta_zeros = {
         14.134725142,  21.022039639,  25.010857580,  30.424876126,  32.935061588,  //  10 
         37.586178159,  40.918719012,  43.327073281,  48.005150881,  49.773832478,
@@ -605,12 +612,13 @@ class RexNode extends Node {
     }
 
     public double eval(HashMap<String, Double> argList) throws Exception {
+    // source : David Mumford's blog [http://www.dam.brown.edu/people/mumford/blog/2014/RiemannZeta.html]
         double x = argExpr.eval( argList);
         double result = 0.0;
         for (int i=0; i<limit; i++) {
             result += Math.cos( Math.log(x) * zeta_zeros[i] );
         }
-        return (1 - 2*result/Math.sqrt(x) - 1 / (x*x*x-x)); //source = David Mumford's blog
+        return (1 - 2*result/Math.sqrt(x) - 1 / (x*x*x-x));
     }
 
     public String toString() {
@@ -619,12 +627,12 @@ class RexNode extends Node {
 
 }
 
-/**
-The Grammar: 
+/*
+The Grammar
 
 Expr ::= 
          Term ± Term ± ...
-         -Term ± Term ± ...
+     |   -Term ± Term ± ...
     
 Term ::= 
         '-' Power
@@ -667,7 +675,7 @@ Function ::=
 Variable ::=
         [a-z]\+  (excluding pi,g,c,e,G)
     
-**/
+*/
 
 class Parser { 
 
@@ -697,8 +705,8 @@ class Parser {
     }
     
     public Node expr() throws Exception { 
-	System.out.println("expr -->");
-	    TermList termlist = new TermList();
+    System.out.println("expr -->");
+        TermList termlist = new TermList();
         int s = 1;
         boolean firstterm = true;
 
@@ -728,8 +736,8 @@ class Parser {
         return termlist;
     }
 
-	 // Consumes everything up to a times or divide, as according to the grammar.
-	public Node term() throws Exception { 
+     // Consumes everything up to a times or divide, as according to the grammar.
+    public Node term() throws Exception { 
 System.out.println("  term -->");
         Node left; 
         Tok t = str.nextToken(); 
@@ -740,16 +748,16 @@ System.out.println("  term -->");
             pushBack("t", t);
             left = power();
         }
-		Tok token = str.nextToken();
-		if (token == Tok.TIMES) return new OpNode(Op.Times, left, term());
-		else if (token == Tok.DIVIDE) return new OpNode(Op.Divide, left, term());
-		else {
-			pushBack("t", token); 
-			return left;
-		}
-	}
+        Tok token = str.nextToken();
+        if (token == Tok.TIMES) return new OpNode(Op.Times, left, term());
+        else if (token == Tok.DIVIDE) return new OpNode(Op.Divide, left, term());
+        else {
+            pushBack("t", token); 
+            return left;
+        }
+    }
 
-	public Node power() throws Exception { 
+    public Node power() throws Exception { 
 System.out.println("    power-->");
         Node left; 
         Tok t = str.nextToken(); 
@@ -760,102 +768,102 @@ System.out.println("    power-->");
             pushBack("p", t);
             left = factor();
         }
-		Tok token = str.nextToken();
-		if (token == Tok.HAT) return new OpNode(Op.Hat, left, power());
-		else {
-			pushBack("p", token); 
-			return left;
-		}
-	}
-	
-	public Node factor() throws Exception { 
+        Tok token = str.nextToken();
+        if (token == Tok.HAT) return new OpNode(Op.Hat, left, power());
+        else {
+            pushBack("p", token); 
+            return left;
+        }
+    }
+    
+    public Node factor() throws Exception { 
 System.out.println("      factor -->");
         Tok token = str.nextToken();
-		if (token == Tok.VARIABLE) {
+        if (token == Tok.VARIABLE) {
             argList.put(str.strVal, null);
             return new VarNode(str.strVal);
         }
-        if (token == Tok.NUMBER) return new NumNode(str.numVal);	
+        if (token == Tok.NUMBER) return new NumNode(str.numVal);    
         if (token == Tok.E) return new NumNode(Math.E);
         if (token == Tok.PI) return new NumNode(Math.PI);
         if (token == Tok.G) return new NumNode(6.67408E-11);
         if (token == Tok.g) return new NumNode(9.8);
-		if (token == Tok.FUNCTION) { 
-			String funcName = str.strVal;
-			if (str.nextToken() != Tok.LPAR)
-				throw new Exception( "INVALID_FUNCTION_SYNTAX: expecting left paren");
-			Node argExpr = expr();	//consumes everything up to the right-parenthesis, which was pushed back in expr().
-			if (str.nextToken() != Tok.RPAR) 
-				throw new Exception("INVALID_FUNCTION_SYNTAX: expecting right paren");
-			
-			return new FuncNode( str.getFunc( funcName ), argExpr );
-		}
-		if (token == Tok.SUMMATION) { // expect:  '(' Expr ',' Var ',' Number ',' Number ')' 
-			
-			if (str.nextToken() != Tok.LPAR)
-				throw new Exception( "INVALID_FUNCTION_SYNTAX: expecting left paren");
-			
-			Node argExpr = expr();
-			if (str.nextToken() != Tok.COMMA) 
-				throw new Exception("INVALID_FUNCTION_SYNTAX: expecting comma");
-			
-			Node var = factor(); //variable expected
-			if (!(var instanceof VarNode)) 
-				throw new Exception("INVALID_FUNCTION_SYNTAX: expecting var name");
-			
-			if (str.nextToken() != Tok.COMMA) 
-				throw new Exception("INVALID_FUNCTION_SYNTAX: expecting comma");
-			
-			Node start = factor();//number expected
-			if (!(start instanceof NumNode))
-				throw new Exception("INVALID_FUNCTION_SYNTAX: expecting start value, a number");
-			
-			if (str.nextToken() != Tok.COMMA) //number expected
-				throw new Exception("INVALID_FUNCTION_SYNTAX: expecting comma");
-			
-			Node limit = factor();
-			if (!(limit instanceof NumNode))
-				throw new Exception("INVALID_FUNCTION_SYNTAX: expecting limit value, a number");
-			
-			if (str.nextToken() != Tok.RPAR) 
-				throw new Exception("INVALID_FUNCTION_SYNTAX: expecting right paren");
-			
-			return new SumNode( argExpr, var.toString(), (int) start.eval(), (int)limit.eval() );
-		}
-		if (token == Tok.PRODUCT) {
-			// expect:  '(' Expr ',' Var ',' Number ',' Number ')' 
-			
-			if (str.nextToken() != Tok.LPAR)
-				throw new Exception( "INVALID_FUNCTION_SYNTAX: expecting left paren");
-			
-			Node argExpr = expr();
-			
-			if (str.nextToken() != Tok.COMMA) 
-				throw new Exception("INVALID_FUNCTION_SYNTAX: expecting comma");
-			
-			Node var = factor();
-			if (!(var instanceof VarNode))
-				throw new Exception("INVALID_FUNCTION_SYNTAX: expecting var name");
-			
-			if (str.nextToken() != Tok.COMMA) 
-				throw new Exception("INVALID_FUNCTION_SYNTAX: expecting comma");
-			
-			Node start = factor();
-			if (!(start instanceof NumNode))
-				throw new Exception("INVALID_FUNCTION_SYNTAX: expecting start value, a number");
-			
-			if (str.nextToken() != Tok.COMMA) 
-				throw new Exception("INVALID_FUNCTION_SYNTAX: expecting comma");
-			
-			Node limit = factor();
-			if (!(limit instanceof NumNode))
-				throw new Exception("INVALID_FUNCTION_SYNTAX: expecting limit value, a number");
-			
-			if (str.nextToken() != Tok.RPAR) 
-				throw new Exception("INVALID_FUNCTION_SYNTAX: expecting right paren");
-			
-			return new ProdNode( argExpr, var.toString(), (int)start.eval(), (int)limit.eval() );
-		}
+        if (token == Tok.FUNCTION) { 
+            String funcName = str.strVal;
+            if (str.nextToken() != Tok.LPAR)
+                throw new Exception( "INVALID_FUNCTION_SYNTAX: expecting left paren");
+            Node argExpr = expr();    //consumes everything up to the right-parenthesis, which was pushed back in expr().
+            if (str.nextToken() != Tok.RPAR) 
+                throw new Exception("INVALID_FUNCTION_SYNTAX: expecting right paren");
+            
+            return new FuncNode( str.getFunc( funcName ), argExpr );
+        }
+        if (token == Tok.SUMMATION) { // expect:  '(' Expr ',' Var ',' Number ',' Number ')' 
+            
+            if (str.nextToken() != Tok.LPAR)
+                throw new Exception( "INVALID_FUNCTION_SYNTAX: expecting left paren");
+            
+            Node argExpr = expr();
+            if (str.nextToken() != Tok.COMMA) 
+                throw new Exception("INVALID_FUNCTION_SYNTAX: expecting comma");
+            
+            Node var = factor(); //variable expected
+            if (!(var instanceof VarNode)) 
+                throw new Exception("INVALID_FUNCTION_SYNTAX: expecting var name");
+            
+            if (str.nextToken() != Tok.COMMA) 
+                throw new Exception("INVALID_FUNCTION_SYNTAX: expecting comma");
+            
+            Node start = factor();//number expected
+            if (!(start instanceof NumNode))
+                throw new Exception("INVALID_FUNCTION_SYNTAX: expecting start value, a number");
+            
+            if (str.nextToken() != Tok.COMMA) //number expected
+                throw new Exception("INVALID_FUNCTION_SYNTAX: expecting comma");
+            
+            Node limit = factor();
+            if (!(limit instanceof NumNode))
+                throw new Exception("INVALID_FUNCTION_SYNTAX: expecting limit value, a number");
+            
+            if (str.nextToken() != Tok.RPAR) 
+                throw new Exception("INVALID_FUNCTION_SYNTAX: expecting right paren");
+            
+            return new SumNode( argExpr, var.toString(), (int) start.eval(), (int)limit.eval() );
+        }
+        if (token == Tok.PRODUCT) {
+            // expect:  '(' Expr ',' Var ',' Number ',' Number ')' 
+            
+            if (str.nextToken() != Tok.LPAR)
+                throw new Exception( "INVALID_FUNCTION_SYNTAX: expecting left paren");
+            
+            Node argExpr = expr();
+            
+            if (str.nextToken() != Tok.COMMA) 
+                throw new Exception("INVALID_FUNCTION_SYNTAX: expecting comma");
+            
+            Node var = factor();
+            if (!(var instanceof VarNode))
+                throw new Exception("INVALID_FUNCTION_SYNTAX: expecting var name");
+            
+            if (str.nextToken() != Tok.COMMA) 
+                throw new Exception("INVALID_FUNCTION_SYNTAX: expecting comma");
+            
+            Node start = factor();
+            if (!(start instanceof NumNode))
+                throw new Exception("INVALID_FUNCTION_SYNTAX: expecting start value, a number");
+            
+            if (str.nextToken() != Tok.COMMA) 
+                throw new Exception("INVALID_FUNCTION_SYNTAX: expecting comma");
+            
+            Node limit = factor();
+            if (!(limit instanceof NumNode))
+                throw new Exception("INVALID_FUNCTION_SYNTAX: expecting limit value, a number");
+            
+            if (str.nextToken() != Tok.RPAR) 
+                throw new Exception("INVALID_FUNCTION_SYNTAX: expecting right paren");
+            
+            return new ProdNode( argExpr, var.toString(), (int)start.eval(), (int)limit.eval() );
+        }
         if (token == Tok.REX) {
             //expect: '(' Number ')'
 
@@ -868,33 +876,20 @@ System.out.println("      factor -->");
 
             Node limit = factor(); //expecting number
             if (!(limit instanceof NumNode))
-				throw new Exception("INVALID_FUNCTION_SYNTAX: expecting limit value, a number");
+                throw new Exception("INVALID_FUNCTION_SYNTAX: expecting limit value, a number");
 
             return new RexNode(argExpr, (int)limit.eval() );
         }
-		if (token == Tok.LPAR) {	//Parenthesis without a function 
-            Node interior = expr();	 //Expr inside '(' and ') 
-			Tok extra = str.nextToken();
-			if (extra == Tok.RPAR) return interior; //consumes everything up to the next ')'.
-			throw new Exception("UNBALANCED_PARENTHESIS"); //no rightparens makes input invalid.
-		}
+        if (token == Tok.LPAR) {    //Parenthesis without a function 
+            Node interior = expr();     //Expr inside '(' and ') 
+            Tok extra = str.nextToken();
+            if (extra == Tok.RPAR) return interior; //consumes everything up to the next ')'.
+            throw new Exception("UNBALANCED_PARENTHESIS"); //no rightparens makes input invalid.
+        }
         pushBack("f", token);
         //nextToken() design saves need for pushing back EOS
         return null; 
-	}	
-
-    //not used
-	public static String genRandomTest(int length) throws Exception { 
-        char[] chars = {
-            'x', '1', '+', '-', '*', '/', '(', ')', '^'
-        };    
-        String str = "";    
-        for (int i=0; i<length; i++) { 
-            int pos = (int) (chars.length * Math.random());
-            str += chars[pos];
-        }
-        return str;
-    }
+    }    
 
 } 
 
@@ -923,7 +918,7 @@ public class Function {
         for (String v : variables) System.out.print(v + " ");
         System.out.println();
     }
-	
+    
     public String toString() { return in; }
 
     public double value(double x) throws Exception { 
@@ -931,7 +926,7 @@ public class Function {
         return func.eval(argList); 
     }
 
-   public boolean isContinuous(double x) {
+    public boolean isContinuous(double x) {
         double v;
         try { 
             v = value(x);
@@ -953,67 +948,77 @@ public class Function {
         }
         catch (Exception e) { if ( e.getMessage().equals("division by 0") ) return false; }
         return true;
-   }
+    }
 
-    public static void main(String[] args) { 
-            /* 
-            if (args.length < 2) {
-                System.out.println("ERROR: expecting 2 arguments");
-                return;
-            }	        
-            int num = Integer.parseInt(args[0]);
-            int len = Integer.parseInt(args[1]); 
-            for (int i=0; i<num; i++) { 
-                String s = "";
-                try { 
-                    s = genRandomTest(len);
-                    System.out.println(s);
-                    Tokenizer T = new Tokenizer(s);
-                    Parser P = new Parser(T);
-                    P.root.print(); 
-                    
-                }       
-                catch(Exception e) { 
-                    e.printStackTrace();
-                }
-           }
-           */
-         	
-            /* 
+    public static String fuzzTest(int length) { 
+        char[] chars = {
+            'x', '1', '+', '-', '*', '/', '(', ')', '^'
+        };    
+        String str = "";    
+        for (int i=0; i<length; i++) { 
+            int pos = (int) (chars.length * Math.random());
+            str += chars[pos];
+        }
+        return str;
+    }
+
+    public static void testParser(String[] args) {
+        if (args.length < 2) {
+            System.out.println("ERROR: expecting 2 arguments");
+            return;
+        }            
+        int num = Integer.parseInt(args[0]);
+        int len = Integer.parseInt(args[1]); 
+        for (int i=0; i<num; i++) { 
+            String s = "";
+            try { 
+                s = fuzzTest(len);
+                System.out.println(s);
+                Tokenizer T = new Tokenizer(s);
+                Parser P = new Parser(T);
+                P.root.print(); 
+            }       
+            catch(Exception e) { 
+                e.printStackTrace();
+            }
+        }
+    }
+    
+    public static void testTokenizer(String[] args) {
+        for (int i=0; i<args.length; i++) {
+            Tokenizer T = new Tokenizer(args[i]); 
             while (true) {
             Tok t = T.nextToken(); 
-			//if (Character.isWhitespace(0)) System.out.println("the null character is a white space");
-			System.out.print(t);
-			if (t == Tok.VARIABLE || t ==Tok.FUNCTION) System.out.print(", " + T.strVal);
-			if (t == Tok.NUMBER) System.out.print(", " + T.numVal);
-			if (t == Tok.EOS) { 
+            System.out.print(t);
+            if (t == Tok.VARIABLE || t ==Tok.FUNCTION) System.out.print(", " + T.strVal);
+            if (t == Tok.NUMBER) System.out.print(", " + T.numVal);
+            if (t == Tok.EOS) { 
                 System.out.println();
                 break; 
             }
                 System.out.println();
             }
-            */
+        }
+    }
 
-            /*
-            try {
-			    HashMap<String, Double> argList = new HashMap<String, Double>();
-			    argList.put( "x", 2.0 );
-			    argList.put( "n", 0.0);
-			System.out.println(P.root.eval( argList ));
-		    } catch (Exception e) {
-			    e.printStackTrace();
-	 	    } 
-            */
-            System.out.println("Test Code");
-            Function f = new Function(args[0]);
-            f.print();
-            f.printArgList();
-            try { 
-                System.out.println("f(" + Double.parseDouble(args[1]) + ") = " + f.value(Double.parseDouble(args[1])));
-            }
-            catch (Exception e) {
-                e.printStackTrace();
-            }
+    public static void testFunction(String[] args) {
+        System.out.println("Test Code");
+        Function f = new Function(args[0]);
+        f.print();
+        f.printArgList();
+        try { 
+            System.out.println("f(" + Double.parseDouble(args[1]) + ") = "
+                                + f.value(Double.parseDouble(args[1])));
+        }
+        catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+
+    public static void main(String[] args) { 
+        // testParser(args);
+        // testTokenizer(args);
+        testFunction(args);
     }
 
 }

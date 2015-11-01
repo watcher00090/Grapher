@@ -19,8 +19,9 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Scanner;
 
-class GraphController implements ComponentListener, WindowListener, KeyListener, 
-                                ItemListener, MouseListener, MouseMotionListener, ActionListener {
+class GraphController
+implements ComponentListener, WindowListener, KeyListener, 
+           ItemListener, MouseListener, MouseMotionListener, ActionListener {
 
     Graph graph;
     TextField inputbar;
@@ -86,12 +87,12 @@ class GraphController implements ComponentListener, WindowListener, KeyListener,
 
         if (e.getKeyChar() == KeyEvent.VK_ENTER) {
 
-            if ( !(xminbar.getText().equals("") ||
-                xmaxbar.getText().equals("") ||
-                yminbar.getText().equals("") ||
-                ymaxbar.getText().equals("") || 
-                xincrementbar.getText().equals("") ||
-                yincrementbar.getText().equals("") ) ) { 
+            if ( !(xminbar.getText().equals("")
+                || xmaxbar.getText().equals("")
+                || yminbar.getText().equals("")
+                || ymaxbar.getText().equals("") 
+                || xincrementbar.getText().equals("")
+                || yincrementbar.getText().equals("") ) ) { 
 
                 double xmin = Double.parseDouble(xminbar.getText());
                 double xmax = Double.parseDouble(xmaxbar.getText());
@@ -123,8 +124,6 @@ class GraphController implements ComponentListener, WindowListener, KeyListener,
         int mx = e.getX();
         int my = e.getY();
 
-//System.out.println("mx="+mx+", my="+my);
-
         if (graph.func != null) {
             double px = graph.renderXToMathematicalX(mx);
             double py = Double.MAX_VALUE;
@@ -152,12 +151,17 @@ class GraphController implements ComponentListener, WindowListener, KeyListener,
     public void mouseDragged(MouseEvent e) {
         int mx2 = e.getX();
         int my2 = e.getY();
-        double xshift = DRAG_SENSITIVITY_COEFFICIENT * (graph.renderXToMathematicalX(mx1) - graph.renderXToMathematicalX(mx2));
-        double yshift = DRAG_SENSITIVITY_COEFFICIENT * (graph.renderYToMathematicalY(my1) - graph.renderYToMathematicalY(my2));
+
+        double xshift = (graph.renderXToMathematicalX(mx1) - graph.renderXToMathematicalX(mx2));
+        xshift *= DRAG_SENSITIVITY_COEFFICIENT;
+        double yshift = (graph.renderYToMathematicalY(my1) - graph.renderYToMathematicalY(my2));
+        yshift *= DRAG_SENSITIVITY_COEFFICIENT;
+
         mx1 = mx2;
         my1 = my2;
         graph.updateViewingWindow(xshift, yshift);
-        graph.setLabeledPointCoordinates( graph.mathematicalXToRenderX(mx2), graph.mathematicalYToRenderY(my2) );
+        graph.setLabeledPointCoordinates( graph.mathematicalXToRenderX(mx2),
+                                          graph.mathematicalYToRenderY(my2) );
         graph.render();
     }
 
@@ -185,7 +189,7 @@ class GraphController implements ComponentListener, WindowListener, KeyListener,
     public void actionPerformed(ActionEvent e) {
         if (e.getSource() == helpbutton) { 
             System.out.println("helpbuttonpressed!");
-            helpdialog.setSize(800,300);
+            helpdialog.setSize(600,500);
             helpdialog.setVisible(true);
         }
     }
@@ -248,19 +252,16 @@ public class Graph extends Canvas {
     double ly;
 
     //initialized prior to the input of a function so that the axes can be drawn
-    double xmin = -5; 
-    double xmax = 5;
-    double ymin = -5;
-    double ymax = 5;
+    double xmin = -15; 
+    double xmax =  15;
+    double ymin = -15;
+    double ymax =  15;
     double xrange = Math.abs(xmax - xmin);
     double yrange = Math.abs(ymax - ymin);
     double cx = 0;
     double cy = 0;
     double xincrement = 1;
     double yincrement = 1;
-
-    ArrayList<ArrayList<Integer>> xpoints = new ArrayList<ArrayList<Integer>>();
-    ArrayList<ArrayList<Integer>> ypoints = new ArrayList<ArrayList<Integer>>();
 
     static int NUM_POINTS = 10000;
 
@@ -285,15 +286,28 @@ public class Graph extends Canvas {
 
     static String helpmessage = 
         "Simple java 2D Grapher\n\n"+
-        "Can currently graph:\n1) Functions of x\n2) Summation/product expressions.\n\n"+
-        "Precedence: \n^ * / : right associative\n  + - : left associative\n\n" +
+        "Can currently graph:\n"+
+        "   1) Functions of x\n"+
+        "   2) Summation and product expressions.\n\n"+
+
+        "For example,\n"+
+        "   exp(-x^2/2)/sqrt(2*pi)\n"+
+        "   ln(cos(.6535*x))\n"+
+        "   sum(1/n^x,n,1,20)\n\n"+
+
         "Syntax for sum and product expressions:\n"+
-        "  'sum'    |    'prod'    '('    expression (in terms of variables x and/or summation variable)    ','    summation variable    ','    start    ','    end    ')'\n\n" +
+        "   sum(expr, index variable, start index, limit index )\n"+
+        "   prod(expr, index variable, start index, limit index )\n\n"+
+
+        "We also have one special form which is a compiled representation\n"+
+        "of the Riemann explicit formula for the function concentrated on prime powers:\n"+
+        "   1 - 2*sum(cos(ln(x)*zeta_zero(n)), n, 1, 200) - 1/x(x^2-1)\n\n"+
         
-        "Constants can be handled in the y= bar but not in any other bars. \n\n"+
-        "The following constants are recognized: e, pi, g, G, c\n\n" + 
-        "The following built-in functions are recognized: sin, cos, exp, tan, sqrt, log, ln, abs, factorial, arcsin, arccos, arctan\n\n" + 
-        "Function syntax:\n function_name\t'('\texpr\t')'";  
+        "The following constant expressions are recognized:\n"+
+        "   e, pi, g, G, c\n\n" + 
+
+        "The following built-in functions are recognized:\n"+
+        "   sin, cos, exp, tan, sqrt, log, ln, abs, factorial, arcsin, arccos, arctan\n\n";
 
     public Graph() {
 
@@ -330,9 +344,9 @@ public class Graph extends Canvas {
         frame.addWindowListener(G);
 
         render();
-   }
+    }
 
-   private void assembleLayout() {
+    private void assembleLayout() {
 
         frame.setLayout(new GridBagLayout());
         GridBagConstraints oc = new GridBagConstraints();
@@ -353,7 +367,7 @@ public class Graph extends Canvas {
         bottom.setPreferredSize(new Dimension(640,80));
         frame.add(bottom, oc);
 
-       //bottom layout; 
+        //bottom layout; 
         GridBagConstraints bc = new GridBagConstraints();
         bottom.setLayout(new GridBagLayout());
         bc.ipadx = 10;
@@ -364,7 +378,6 @@ public class Graph extends Canvas {
         bc.gridy = 0;
         bc.weightx = 0.0;
         bc.fill = GridBagConstraints.NONE; 
-        //bc.anchor = GridBagConstraints.WEST;
         bottom.add(inputbarlabel, bc);
         inputbarlabel.setPreferredSize(new Dimension(20,20));
 
@@ -426,8 +439,6 @@ public class Graph extends Canvas {
         ic.gridx = 6;
         ic.gridy = 0;
         tablecontainer.add(tickmarklabelscheckboxlabel, ic);
-        //tickmarklabelscheckboxlabel.setPreferredSize(new Dimension(200,20));
-        //tickmarklabelscheckboxlabel.setMinimumSize(new Dimension(50,20));
         
         ic.gridx = 7;
         ic.gridy = 0;
@@ -478,71 +489,78 @@ public class Graph extends Canvas {
         helptext.insert(helpmessage, 0);
         helpdialog.add(helptext);
 
-        frame.setSize(600,600);
+        frame.setSize(800,800);
         frame.setVisible(true);
 
-   }
+    }
 
-   public void setTickLabelsShowing(boolean ticklabelsenabled) { this.ticklabelsenabled = ticklabelsenabled; }
+    public void setTickLabelsShowing(boolean ticklabelsenabled) {
+        this.ticklabelsenabled = ticklabelsenabled;
+    }
 
-   public void setLabeledPointCoordinates(double lx, double ly) {
+    public void setLabeledPointCoordinates(double lx, double ly) {
         this.lx = lx;
         this.ly = ly;
-   }
+    }
 
-   public void setXIncrement(double xincrement) { this.xincrement = xincrement; }
-   public void setYIncrement(double yincrement) { this.yincrement = yincrement; }
+    public void setXIncrement(double xincrement) { this.xincrement = xincrement; }
+    public void setYIncrement(double yincrement) { this.yincrement = yincrement; }
 
-   public void setFunction(Function func) {
-       this.func = func;
-       if (func != null) func.print();
-   }
+    public void setFunction(Function func) {
+        this.func = func;
+        if (func != null) func.print();
+    }
 
-   public void updateViewingWindow(double xmin, double xmax, double ymin, double ymax) {
-       this.xmin = xmin;
-       this.xmax = xmax;
-       this.ymin = ymin;
-       this.ymax = ymax;
-       cx = (xmin + xmax)/2;
-       cy = (ymin + ymax)/2;
-       xrange = Math.abs(xmax - xmin);
-       yrange = Math.abs(ymax - ymin);
-   }
+    public void updateViewingWindow(double xmin, double xmax, double ymin, double ymax) {
+        this.xmin = xmin;
+        this.xmax = xmax;
+        this.ymin = ymin;
+        this.ymax = ymax;
+        cx = (xmin + xmax)/2;
+        cy = (ymin + ymax)/2;
+        xrange = Math.abs(xmax - xmin);
+        yrange = Math.abs(ymax - ymin);
+    }
 
-   public void updateViewingWindow(double xshift, double yshift) { 
-       xmin = xmin + xshift;
-       xmax = xmax + xshift;
-       ymin = ymin + yshift;
-       ymax = ymax + yshift;
-       cx = (xmin + xmax)/2;
-       cy = (ymin + ymax)/2;
-       xrange = Math.abs(xmax - xmin);
-       yrange = Math.abs(ymax - ymin);
-   }
+    public void updateViewingWindow(double xshift, double yshift) { 
+        xmin = xmin + xshift;
+        xmax = xmax + xshift;
+        ymin = ymin + yshift;
+        ymax = ymax + yshift;
+        cx = (xmin + xmax)/2;
+        cy = (ymin + ymax)/2;
+        xrange = Math.abs(xmax - xmin);
+        yrange = Math.abs(ymax - ymin);
+    }
    
-   public void render() {
+    public void render() {
         do { 
             do {
                 Graphics g = strategy.getDrawGraphics();
                 paint(g);
                 g.dispose();
+                try { 
+                    Thread.sleep(1);
+                }
+                catch (Exception e) { 
+                    e.printStackTrace();
+                }
             }
             while (strategy.contentsRestored());
             strategy.show();
         }
         while (strategy.contentsLost());
-   }
+    }
 
-   public void paint(Graphics g) {
-      g.clearRect(0, 0, WIDTH, HEIGHT);
-      g.setColor(Color.WHITE);
-      g.fillRect(0,0, WIDTH, HEIGHT);
-      paintAxesAndTickmarks(g);
-      if (func != null) paintCurve(g);
-   } 
+    public void paint(Graphics g) {
+        g.clearRect(0, 0, WIDTH, HEIGHT);
+        g.setColor(Color.WHITE);
+        g.fillRect(0,0, WIDTH, HEIGHT);
+        paintAxesAndTickmarks(g);
+        if (func != null) paintCurve(g);
+    } 
    
-   public void paintAxesAndTickmarks(Graphics g) {
-        
+    public void paintAxesAndTickmarks(Graphics g) {
         g.setColor(Color.BLACK);
 
         int xaxisy = mathematicalYToRenderY(0);
@@ -567,7 +585,8 @@ public class Graph extends Canvas {
            
             if (ticklabelsenabled) { 
                 String tickmarklabel = nf.format(d);
-                g.drawString(tickmarklabel, mathematicalXToRenderX(d) + HORIZONTAL_AXIS_LABELS_HORIZONTAL_OFFSET,
+                g.drawString(tickmarklabel,
+                             mathematicalXToRenderX(d) + HORIZONTAL_AXIS_LABELS_HORIZONTAL_OFFSET,
                              horizticky + HORIZONTAL_AXIS_LABELS_VERTICAL_OFFSET);
             }
         }
@@ -578,7 +597,9 @@ public class Graph extends Canvas {
 
             if (ticklabelsenabled) {
                 String tickmarklabel = nf.format(d);
-                g.drawString(tickmarklabel, mathematicalXToRenderX(d), horizticky + HORIZONTAL_AXIS_LABELS_VERTICAL_OFFSET);
+                g.drawString(tickmarklabel,
+                             mathematicalXToRenderX(d),
+                             horizticky + HORIZONTAL_AXIS_LABELS_VERTICAL_OFFSET);
             }
         }
 
@@ -596,7 +617,6 @@ public class Graph extends Canvas {
         }
         else { 
             verttickx = WIDTH - HORIZONTAL_BORDER_OFFSET; 
-            //System.out.println("yminstring.length()="+nf.format(ymin).length() );
             VERTICAL_AXIS_LABELS_HORIZONTAL_OFFSET = -15;
             againstfarleft = true; 
         }
@@ -607,10 +627,13 @@ public class Graph extends Canvas {
             
             if (ticklabelsenabled) {
                 String tickmarklabel = nf.format(d);
-                //System.out.println(tickmarklabel);
-                int FAR_RIGHT_HORIZONTAL_OFFSET = againstfarleft ? -CHARACTER_WIDTH*tickmarklabel.length() : 0; 
-                g.drawString(tickmarklabel, verttickx + VERTICAL_AXIS_LABELS_HORIZONTAL_OFFSET +
-                            FAR_RIGHT_HORIZONTAL_OFFSET, mathematicalYToRenderY(d) + VERTICAL_AXIS_LABELS_VERTICAL_OFFSET);
+                int FAR_RIGHT_HORIZONTAL_OFFSET =
+                        againstfarleft ? -CHARACTER_WIDTH*tickmarklabel.length() : 0; 
+
+                g.drawString(tickmarklabel,
+                             verttickx + VERTICAL_AXIS_LABELS_HORIZONTAL_OFFSET
+                                       + FAR_RIGHT_HORIZONTAL_OFFSET,
+                             mathematicalYToRenderY(d) + VERTICAL_AXIS_LABELS_VERTICAL_OFFSET);
             }
         }
 
@@ -621,62 +644,60 @@ public class Graph extends Canvas {
             if (ticklabelsenabled) {
                 String tickmarklabel = nf.format(d);
                 int FAR_RIGHT_HORIZONTAL_OFFSET = againstfarleft ? -CHARACTER_WIDTH*tickmarklabel.length() : 0; 
-                g.drawString(tickmarklabel, verttickx + VERTICAL_AXIS_LABELS_HORIZONTAL_OFFSET +  
-                            FAR_RIGHT_HORIZONTAL_OFFSET, mathematicalYToRenderY(d) + VERTICAL_AXIS_LABELS_VERTICAL_OFFSET);
+                g.drawString(tickmarklabel,
+                             verttickx + VERTICAL_AXIS_LABELS_HORIZONTAL_OFFSET +  
+                                         FAR_RIGHT_HORIZONTAL_OFFSET,
+                             mathematicalYToRenderY(d) + VERTICAL_AXIS_LABELS_VERTICAL_OFFSET);
             }
         }
-
     }
 
     public void paintCurve(Graphics g) {
 
-      ArrayList<Integer> currxpoints = new ArrayList<Integer>();
-      ArrayList<Integer> currypoints = new ArrayList<Integer>();
+        ArrayList<Integer> currxpoints = new ArrayList<Integer>();
+        ArrayList<Integer> currypoints = new ArrayList<Integer>();
       
-      for (int i = 0; i <= NUM_POINTS; i++) {
-
+        for (int i = 0; i <= NUM_POINTS; i++) {
             try {
-
                 double x = xmin + i * xrange / NUM_POINTS;
                 
-                if ( !func.isContinuous(x)  ||
-                    mathematicalYToRenderY(func.value(x)) <= VERTICAL_BORDER_OFFSET ||
-                    mathematicalYToRenderY(func.value(x)) >= HEIGHT - VERTICAL_BORDER_OFFSET ) {
+                if ( !func.isContinuous(x)
+                     || mathematicalYToRenderY(func.value(x)) <= VERTICAL_BORDER_OFFSET
+                     || mathematicalYToRenderY(func.value(x)) >= HEIGHT - VERTICAL_BORDER_OFFSET ) {
 
-                       g.drawPolyline(toIntArray(currxpoints), toIntArray(currypoints), currxpoints.size());
-                       currxpoints.clear();
-                       currypoints.clear();
+                        g.drawPolyline(toIntArray(currxpoints), toIntArray(currypoints), currxpoints.size());
+                        currxpoints.clear();
+                        currypoints.clear();
                 }
-
                 else {
                     currxpoints.add( mathematicalXToRenderX(x) );
                     currypoints.add( mathematicalYToRenderY(func.value(x)) );
                 }
-
             } 
             catch (Exception e) {
                 e.printStackTrace();
             }
-      }
-      g.drawPolyline(toIntArray(currxpoints), toIntArray(currypoints), currxpoints.size());
+        }
+        g.drawPolyline(toIntArray(currxpoints), toIntArray(currypoints), currxpoints.size());
 
         if (hoveringovercurve) {
-        
             g.setColor(labeledpointcolor);
 
-            g.fillOval( mathematicalXToRenderX(lx) - targetRadius, mathematicalYToRenderY(ly) - targetRadius ,
-                2*targetRadius, 2*targetRadius);
+            g.fillOval( mathematicalXToRenderX(lx) - targetRadius,
+                        mathematicalYToRenderY(ly) - targetRadius ,
+                        2*targetRadius, 2*targetRadius);
 
             String targetstring = "("+nf.format(lx)+", "+nf.format(ly)+")";
             
-            g.drawString(targetstring, mathematicalXToRenderX(lx) + TARGET_STRING_HORIZONTAL_OFFSET, 
-                          mathematicalYToRenderY(ly) + TARGET_STRING_VERTICAL_OFFSET);
+            g.drawString(targetstring,
+                         mathematicalXToRenderX(lx) + TARGET_STRING_HORIZONTAL_OFFSET, 
+                         mathematicalYToRenderY(ly) + TARGET_STRING_VERTICAL_OFFSET);
         }
     }
    
    //convert from mathematical coordinates to coordinates on the canvas
     public int mathematicalXToRenderX(double px) {
-       	int rx = (int) (HORIZONTAL_BORDER_OFFSET + RWIDTH / 2.0 + (px - cx) * (RWIDTH / xrange) );
+        int rx = (int) (HORIZONTAL_BORDER_OFFSET + RWIDTH / 2.0 + (px - cx) * (RWIDTH / xrange) );
         return rx;
     }
 
@@ -719,7 +740,7 @@ public class Graph extends Canvas {
                             KeyEvent.VK_ENTER,
                             '\n' ));
             try { 
-                Thread.sleep(5);
+                Thread.sleep(500);
             }
             catch (InterruptedException e) {
                 e.printStackTrace();
