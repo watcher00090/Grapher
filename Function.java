@@ -99,18 +99,23 @@ class Curve extends AlgebraicObject {
         this.pderivy = new Function(pderivy.toString(), pderivy, argList);   
     }
 
-    public ArrayList<Point> findSolutions(double start, double end, String var, double val, double threshold) {
-        double increment = Math.abs(end - start) / 1000;
-        double x0 = start;
-        double x1 = start;
-        for (int k = 1; k <= 1000; k++) {
-            x0 = x1;
-            x1 = start + k * increment; 
-            if (x0 * x1 < 0) { 
-                coords.add( (x0 + x1)/2 );
+    public ArrayList<Point> findSolutions(double start, double end, 
+                                          String var, double val, double threshold) {
+        try { 
+            double increment = Math.abs(end - start) / 1000;
+            double e0 = start;
+            double e1 = start;
+            for (int k = 1; k <= 1000; k++) {
+                e0 = e1;
+                e1 = start + k * increment; 
+                double f1 = var.equals("x") ? func.value(e0, 0) : func.value(0, e0);
+                double f2 = var.equals("y") ? func.value(e1, 0) : func.value(0, e1);
+                if (f1 * f2 < 0) {              //sign change 
+                    coords.add( (e0 + e1)/2 );
+                }
             }
-
         }
+        catch (Exception e) e.printStackTrace();
     }
 
 }
