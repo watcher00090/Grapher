@@ -15,9 +15,14 @@ import java.awt.event.WindowEvent;
 import java.awt.event.WindowListener;
 import java.awt.event.ActionListener;
 import java.awt.event.ActionEvent;
+import java.awt.Point;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Scanner;
+
+enum Mode {
+    FUNCTION, CURVE, EMPTY;
+}
 
 class GraphController
 implements ComponentListener, WindowListener, KeyListener, 
@@ -33,10 +38,9 @@ implements ComponentListener, WindowListener, KeyListener,
     TextField yincrementbar;
     Button helpbutton;
     Dialog helpdialog;
-
-    String funcString = "";
-    Function func;
     Frame frame;
+
+    String str = "";
 
     static double MOUSE_CURVE_PROXIMITY_FACTOR = 5; //pixels on screen 
     static double DRAG_SENSITIVITY_COEFFICIENT = 1;
@@ -105,17 +109,24 @@ implements ComponentListener, WindowListener, KeyListener,
                 graph.setXIncrement(xincrement);
                 graph.setYIncrement(yincrement);
             }
-            
-            if ( inputbar.getText().equals("") ) graph.setFunction(null);
+            if ( inputbar.getText().equals("") ) {
+                graph.setFunction(null);
+                graph.setCurve(null);
+                graph.setMode(Mode.EMPTY);
+            }
             else { 
-                if ( !(funcString.equals(inputbar.getText())) ){
-                    graph.setFunction(new Function(inputbar.getText()));
-                    funcString = inputbar.getText();
+                if ( !(str.equals(inputbar.getText())) ) {
+                    Tokenizer T = new Tokenizer(inputbar.getText());
+                    Parser P = new Parser(T);
+                    HashSet<String> vars = P.argList.keySet();
+                    if (vars.size() > 1) graph.setCurve(new Curve(inputbar.getText(), P.root, P.argList)); 
+                                        //interpretation: f(x,y) = 0
+                    else graph.setFunction(new Function(inputbar.getText(), P.root, P.argList)); 
+                                        //interpretation: y=f(x) or x=f(y)
+                    str = inputbar.getText();
                 }
             }
-
             graph.render();
-            
         }
     }
    
@@ -124,7 +135,7 @@ implements ComponentListener, WindowListener, KeyListener,
         int mx = e.getX();
         int my = e.getY();
 
-        if (graph.func != null) {
+        if (graph.getMode() == Mode.FUNCTION) {
             double px = graph.renderXToMathematicalX(mx);
             double py = Double.MAX_VALUE;
             try {
@@ -135,10 +146,10 @@ implements ComponentListener, WindowListener, KeyListener,
             double diff = Math.abs( graph.mathematicalYToRenderY(py) - my );
 
             if ( diff < MOUSE_CURVE_PROXIMITY_FACTOR ) {
-                graph.hoveringovercurve = true;
+                graph.hoveringoverfunction = true;
                 graph.setLabeledPointCoordinates( px, py );
             }
-            else { graph.hoveringovercurve = false; }
+            else { graph.hoveringoverfunction = false; }
         }
         graph.render();
     }
@@ -231,12 +242,12 @@ public class Graph extends Canvas {
     Label yincrementbarlabel = new Label();
     Label tickmarklabelscheckboxlabel = new Label();
     Checkbox tickmarklabelscheckbox = new Checkbox();
+    Checkbox derivcheckbox = new Checkbox();
     Button helpbutton = new Button();
     Dialog helpdialog = new Dialog(frame);
     TextArea helptext = new TextArea();
 
-    Function func;
-    HashMap<String, Double> argList;
+    RenderObject obj;
     BufferStrategy strategy;
 
     int WIDTH; //canvas width
@@ -245,7 +256,7 @@ public class Graph extends Canvas {
     int RWIDTH; //render area width
     int RHEIGHT; //render area height
 
-    boolean hoveringovercurve = false;
+    boolean hoveringoverfunction = false;
     boolean ticklabelsenabled = false;
     int targetRadius = 5;
     double lx;
@@ -263,6 +274,9 @@ public class Graph extends Canvas {
     double xincrement = 1;
     double yincrement = 1;
 
+    Function func = null;
+    Curve curve = null;
+
     static int NUM_POINTS = 10000;
 
     static final int TARGET_STRING_HORIZONTAL_OFFSET = 10;
@@ -279,7 +293,7 @@ public class Graph extends Canvas {
     static final int TICKMARK_LABELS_CHARACTER_HEIGHT = 8;
     static final int CHARACTER_WIDTH = 6;
 
-    static final Color labeledpointcolor = Color.BLUE;
+    static final Color labeledpointcolor = Color.BLACK;
 
     NumberFormat nf = NumberFormat.getInstance();
     GraphController G;
@@ -506,10 +520,8 @@ public class Graph extends Canvas {
     public void setXIncrement(double xincrement) { this.xincrement = xincrement; }
     public void setYIncrement(double yincrement) { this.yincrement = yincrement; }
 
-    public void setFunction(Function func) {
-        this.func = func;
-        if (func != null) func.print();
-    }
+    public void setFunction(Function func) { this.func = func; }
+    public void setCurve(Curve curve) { this.curve = curve; }
 
     public void updateViewingWindow(double xmin, double xmax, double ymin, double ymax) {
         this.xmin = xmin;
@@ -557,7 +569,8 @@ public class Graph extends Canvas {
         g.setColor(Color.WHITE);
         g.fillRect(0,0, WIDTH, HEIGHT);
         paintAxesAndTickmarks(g);
-        if (func != null) paintCurve(g);
+        if (func != null) paintFunction(g, func);
+        if (curve != null) paintCurve(g, curve);
     } 
    
     public void paintAxesAndTickmarks(Graphics g) {
@@ -651,49 +664,88 @@ public class Graph extends Canvas {
             }
         }
     }
-
-    public void paintCurve(Graphics g) {
+    
+    public void paintFunction(Function func, Graphics g) {
 
         ArrayList<Integer> currxpoints = new ArrayList<Integer>();
         ArrayList<Integer> currypoints = new ArrayList<Integer>();
       
-        for (int i = 0; i <= NUM_POINTS; i++) {
-            try {
-                double x = xmin + i * xrange / NUM_POINTS;
-                
-                if ( !func.isContinuous(x)
-                     || mathematicalYToRenderY(func.value(x)) <= VERTICAL_BORDER_OFFSET
-                     || mathematicalYToRenderY(func.value(x)) >= HEIGHT - VERTICAL_BORDER_OFFSET ) {
+        if (func.containsKey("x")) { //y=f(x) 
 
-                        g.drawPolyline(toIntArray(currxpoints), toIntArray(currypoints), currxpoints.size());
-                        currxpoints.clear();
-                        currypoints.clear();
+            for (int i = 0; i <= NUM_POINTS; i++) {
+                try {
+                    double x = xmin + i * xrange / NUM_POINTS;
+                    
+                    if ( !func.isContinuous(x, "x");
+                         || mathematicalYToRenderY(func.value(x)) <= VERTICAL_BORDER_OFFSET
+                         || mathematicalYToRenderY(func.value(x)) >= HEIGHT - VERTICAL_BORDER_OFFSET ) {
+
+                            g.drawPolyline(toIntArray(currxpoints), toIntArray(currypoints), currxpoints.size());
+                            currxpoints.clear();
+                            currypoints.clear();
+                    }
+                    else {
+                        currxpoints.add( mathematicalXToRenderX(x) );
+                        currypoints.add( mathematicalYToRenderY(func.value(x)) );
+                    }
+                } 
+                catch (Exception e) {
+                    e.printStackTrace();
                 }
-                else {
-                    currxpoints.add( mathematicalXToRenderX(x) );
-                    currypoints.add( mathematicalYToRenderY(func.value(x)) );
-                }
-            } 
-            catch (Exception e) {
-                e.printStackTrace();
             }
+            g.drawPolyline(toIntArray(currxpoints), toIntArray(currypoints), currxpoints.size());
+            currxpoints.clear();
+            currypoints.clear();
+    
         }
-        g.drawPolyline(toIntArray(currxpoints), toIntArray(currypoints), currxpoints.size());
 
-        if (hoveringovercurve) {
+        else if (func.containsKey("y")) { //x = f(y) 
+
+            for (int i = 0; i <= NUM_POINTS; i++) {
+                try {
+                    double y = ymin + i * yrange / NUM_POINTS;
+                    
+                    if ( !func.isContinuous(y, "y");
+                         || mathematicalXToRenderX(func.value(y)) <= HORIZONTAL_BORDER_OFFSET
+                         || mathematicalYToRenderY(func.value(x)) >= WIDTH - HORIZONTAL_BORDER_OFFSET ) {
+
+                            g.drawPolyline(toIntArray(currxpoints), toIntArray(currypoints), currxpoints.size());
+                            currxpoints.clear();
+                            currypoints.clear();
+                    }
+                    else {
+                        currxpoints.add( mathematicalXToRenderX(func.value(y)) );
+                        currypoints.add( mathematicalYToRenderY(y) );
+                    }
+                } 
+                catch (Exception e) {
+                    e.printStackTrace();
+                }
+            }
+            g.drawPolyline(toIntArray(currxpoints), toIntArray(currypoints), currxpoints.size());
+            currxpoints.clear();
+            currypoints.clear();
+        }
+
+        if (hoveringoverfunction) {
             g.setColor(labeledpointcolor);
-
             g.fillOval( mathematicalXToRenderX(lx) - targetRadius,
                         mathematicalYToRenderY(ly) - targetRadius ,
                         2*targetRadius, 2*targetRadius);
-
             String targetstring = "("+nf.format(lx)+", "+nf.format(ly)+")";
-            
             g.drawString(targetstring,
                          mathematicalXToRenderX(lx) + TARGET_STRING_HORIZONTAL_OFFSET, 
                          mathematicalYToRenderY(ly) + TARGET_STRING_VERTICAL_OFFSET);
         }
     }
+
+    /*
+    public void paintCurve(Graphics g) {
+        for (double y=ymin; y<ymax; y++) {
+            ArrayList<Point> points = curve.findSolutions(xmin, xmax, "y", y, .0001);
+        } 
+    }
+    */
    
    //convert from mathematical coordinates to coordinates on the canvas
     public int mathematicalXToRenderX(double px) {
