@@ -1,17 +1,27 @@
+import java.util.HashMap;
+
 public class Function {
 
-    String in
+    String in;
     Node tree;
     HashMap<String, Double> argList;
+    static double CONTINUITY_INCREMENT = .00000001;
+    static double MARGIN_OF_ERROR = .1;
 
-    public Function(String in, Node func, HashMap<String, Double> argList) {
+    public Function(String in, Node tree, HashMap<String, Double> argList) {
         this.in = in;
-        this.func = func;
+        this.tree = tree;
         this.argList = argList;
     }
 
+    public void print() {
+        tree.print();
+    }
+
     public double value(double... point) throws Exception {
-        if (point.length != argList.size()) throw new Exception("ERROR: INVALID_NUMBER_OF_ARGUMENTS");
+        if (point.length != argList.size() && argList.size() != 0) {
+            throw new Exception("ERROR: INVALID_NUMBER_OF_ARGUMENTS");
+        }
         if (argList.size() == 1) {
             if (argList.containsKey("x")) argList.replace("x", point[0]);   
             else if (argList.containsKey("y")) argList.replace("y", point[0]);
@@ -20,35 +30,55 @@ public class Function {
             argList.replace("x", point[0]); 
             argList.replace("y", point[1]);
         }
+        else if (argList.size() > 2) throw new Exception("ERROR: TOO_MANY_ARGUMENTS");
         return tree.eval(argList);
     }
+    
+    public void printArgList() {
+        for (String var : argList.keySet()) {
+            System.out.println("(" + var + ", " + argList.get(var).doubleValue() + ")");
+        }
+    }
 
-    public boolean isContinuous(double p, String var) {
-        if (argList.size() == 1) {
+    public boolean isContinuous(double p) throws Exception {
+        if (argList.size() <= 1) {
             double v = 0;
             try { 
-                v = this.value(p);
-                for (double d = p - 5 * CONTINUITY_INCREMENT; d < p; d += CONTINUITY_INCREMENT) {
-                    try { 
-                        argList.replace(var, d);
-                        double fy = tree.eval(argList); 
-                        //System.out.println("x="+x+", fy="+fy+", v="+v);
-                        if ( Math.abs(v - fy) > MARGIN_OF_ERROR ) return false;
-                    }
-                    catch (Exception e) { e.printStackTrace(); }
+                v = value(p);
+                for (double l = p - 5 * CONTINUITY_INCREMENT; l < p; l += CONTINUITY_INCREMENT) {
+                    double fy = value(l); 
+                    //System.out.println("x="+x+", fy="+fy+", v="+v);
+                    if ( Math.abs(v - fy) > MARGIN_OF_ERROR ) return false;
                 }
-                for (double d = p + 5 * CONTINUITY_INCREMENT; d > p; d -= CONTINUITY_INCREMENT) {
-                    try { 
-                        argList.replace(var, d);
-                        double fy = tree.eval(argList); 
-                        if ( Math.abs(v - fy) > MARGIN_OF_ERROR ) return false;
-                    }
-                    catch (Exception e) { e.printStackTrace(); }
+                for (double r = p + 5 * CONTINUITY_INCREMENT; r > p; r -= CONTINUITY_INCREMENT) {
+                    double fy = value(r); 
+                    if ( Math.abs(v - fy) > MARGIN_OF_ERROR ) return false;
                 }
             }
-            catch (Exception e) { if ( e.getMessage().equals("division by 0") ) return false; }
+            catch (Exception e) { 
+                System.out.println("Exception at p = " + p);
+                e.printStackTrace();
+                if (e.getMessage().equals("division by 0")) return false; 
+            }
             return true;
         }
+        throw new Exception("ERROR: MULTIVARIATE CONTINUITY NOT YET IMPLEMENTED");
+    }
+
+    public boolean isMultivariable() {
+        if (argList.size() > 1) return true;
+        return false;
+    }
+
+    public boolean isFunctionOfX() {
+        if (argList.size() == 0) return true; //treating constants as functions of x
+        else if (argList.size() == 1 && argList.containsKey("x")) return true;
+        return false;
+    }
+
+    public boolean isFunctionOfY() {
+        if (argList.size() == 1 && argList.containsKey("y")) return true;
+        return false;
     }
 
     public static double newton(Node func, Node deriv, String var, 
@@ -67,80 +97,84 @@ public class Function {
     }
 
     public static void testNewton(String[] args) {
-        Tokenizer T = new Tokenizer(args[0]);
-        Parser P = new Parser(T);
+        Parser P = new Parser(args[0]);
         Node func = P.root;
-        Node deriv = P.root.deriv("x");
-        HashMap<String, Double> argList = P.argList;
-        double x0 = Double.parseDouble(args[1]);
-        double threshold = Double.parseDouble(args[2]);
-        System.out.println("newton(func, deriv, "+x0+", "+threshold+") = "+
-                            Curve.newton(func, deriv, "x", argList, x0, threshold));
-        
+        try { 
+            Node deriv = P.root.pderiv("x");
+            HashMap<String, Double> argList = P.argList;
+            double x0 = Double.parseDouble(args[1]);
+            double threshold = Double.parseDouble(args[2]);
+            System.out.println("newton(func, deriv, "+x0+", "+threshold+") = "+
+                                newton(func, deriv, "x", argList, x0, threshold));
+        }
+        catch (Exception e) { 
+            e.printStackTrace();
+        }
     }
+
+    public static void testFunction(String[] args) {
+        Parser P = new Parser(args[0]);
+        Function func = new Function(args[0], P.root, P.argList);
+        System.out.println();
+        func.print();
+        System.out.println();
+        System.out.println("Multivariable: " + func.isMultivariable());
+        System.out.println();
+        if (func.isMultivariable()) {
+            try { 
+                double x = Double.parseDouble(args[1]);
+                double y = Double.parseDouble(args[2]);
+                System.out.println("f(" + x + "," + y + ") = " + 
+                    func.value(x, y)
+                                  ); 
+            }
+            catch (Exception e) { e.printStackTrace(); }
+        }
+        else { 
+            try { 
+                System.out.println("f(" + args[1] + ") = " + func.value(Double.parseDouble(args[1])));    
+            }
+            catch (Exception e) { e.printStackTrace(); }
+        }
+        System.out.println();
+    }
+
+    public static void testIsContinuous(String[] args) {
+        Parser P = new Parser(args[0]);
+        Function func = new Function(args[0], P.root, P.argList);
+        func.print();
+        Double val = Double.parseDouble(args[1]);
+        try { 
+            System.out.println("isContinuous(" + val +
+                               ") = " + func.isContinuous(val)
+                              ); 
+        }
+        catch (Exception e) { e.printStackTrace(); }
+    }
+
+    public static void main(String[] args) {
+        //testFunction(args);
+        testIsContinuous(args);
+        //testNewton(args);
+    }
+    
 }
 
 //f(x, y) = 0;
-class Curve extends AlgebraicObject {
+class Curve {
 
     String in;
     Function func;
-    HashMap<String, Double> argList
-    Function pderivx;
-    Function pderivy;
+    HashMap<String, Double> argList;
     
     public Curve(String in, Function func, HashMap<String, Double> argList) {
         this.in = in;
         this.func = func;
         this.argList = argList;
-        Node pderivx = func.pderiv("x");
-        Node pderivy = func.pderiv("y");
-        this.pderivx = new Function(pderivx.toString(), pderivx, argList);   
-        this.pderivy = new Function(pderivy.toString(), pderivy, argList);   
     }
 
-    public ArrayList<Point> findSolutions(double start, double end, String var, double val, double threshold) {
-        double increment = Math.abs(end - start) / 1000;
-        double x0 = start;
-        double x1 = start;
-        for (int k = 1; k <= 1000; k++) {
-            x0 = x1;
-            x1 = start + k * increment; 
-            if (x0 * x1 < 0) { 
-                coords.add( (x0 + x1)/2 );
-            }
-
-        }
+    public double value(double... point) throws Exception {
+        return func.value(point); 
     }
 
 }
-
-
-/*
-    ArrayList<Point> points = new ArrayList<Point>();
-    Vector<Double> startingpoints = new ArrayList<Double>();
-    argList.replace(var, val);
-    int n = 1000;
-    double d1 = start;
-    double d2 = start;
-    double range = Math.abs(end - start);
-    for (int i=1; i<=1000; i++) {
-        d1 = d2;
-        d2 = start + i * range / n;
-        if (curve.eval(d1, argList) * 
-            curve.eval(d2, argList) < 0) startingpoints.add((d1+d2)/2); 
-    }
-    for (double d : startingpoints) {
-        argList.replace(var, d);
-        double coord = 0;
-        if (var.equals("x")) {
-            argList.replace("x", d);
-            coord = newton(curve, pderivx, y, d, argList, threshold);
-        }
-        else if (var.equals("y")) {
-            argList.replace("y", d);
-            coord = newton(curve, pderivx, x, d, argList, threshold);
-        }
-        double coord = newton(curve, d, 1e-8);
-    }
-*/

@@ -302,17 +302,23 @@ abstract class Node {
     Node left; 
     Node right;
     static final int NUM_SPACES = 2;
-    static double CONTINUITY_INCREMENT = .000001;
-    static double MARGIN_OF_ERROR = .01;
 
     abstract double eval(HashMap<String, Double> argList) throws Exception; 
-    abstract Node reduce() throws Exception;
-    abstract int size();
-    abstract Node pderiv(String var);
+    abstract Node reduce() throws Exception; 
+    abstract Node pderiv(String var) throws Exception;
+    abstract void print(int depth);
+
     public double eval() { return 0; }
     public Op getOp() { return Op.Undef; }
 
-    void print() { System.out.println(this.toString()); }
+    public void print() { 
+        this.print(0);
+        System.out.println();
+    }
+
+    public static void printSpaces(int depth) {
+        for (int i=0; i<depth; i++) System.out.print(" ");
+    }
 
 }
 
@@ -333,6 +339,19 @@ class TermList extends Node {
        this.signv = signv; 
     }
 
+    public void print(int depth) {
+        Node.printSpaces(depth);
+        System.out.println("termlist");
+        for (int i=0; i<termv.size(); i++) {
+            Node.printSpaces(depth+1);
+            if (signv.get(i) == 1) System.out.print("+"); 
+            else if (signv.get(i)== -1) System.out.print("-"); 
+            System.out.println();
+            termv.get(i).print(depth+2);
+            if (i != termv.size() - 1) System.out.println();
+        }
+    }
+
     public void add(int sgn, Node term) {
         signv.add(new Integer(sgn));
         termv.add(term);
@@ -348,7 +367,7 @@ class TermList extends Node {
         return result;
     }
 
-    public Node pderiv(String var) { 
+    public Node pderiv(String var) throws Exception { 
         TermList result = new TermList();
         if (termv.size() == 0) {
             result.add(1, new NumNode(1));
@@ -378,25 +397,17 @@ class TermList extends Node {
         return result;
     }
 
-    public int size() {
-        int size=0;
-        for (int i=0; i<termv.size(); i++) {
-            size += termv.get(i).size() + 1;
-        }
-        return size;
-    }
-
     public Node reduce() throws Exception {
         if (termv.size() == 0) throw new Exception("ERROR: INVALID_SYMANTICS");
         if (termv.size() == 1) { 
             if (signv.get(0) == -1) return (new OpNode(Op.Times, new NumNode(-1), termv.get(0))).reduce(); 
-            return termv.get(0).reduce();
+            else return termv.get(0).reduce();
         } 
         //double constsum = 0;
         System.out.println("returning this");
         return this;
     }
-
+    
 }
 
 class OpNode extends Node { 
@@ -406,6 +417,14 @@ class OpNode extends Node {
         this.op = op;
         this.left = left;
         this.right = right;
+    }
+
+    public void print(int depth) {
+        Node.printSpaces(depth);
+        System.out.println(op.toString());
+        left.print(depth+1);
+        System.out.println();
+        right.print(depth+1);
     }
 
     public String toString() { 
@@ -426,24 +445,24 @@ class OpNode extends Node {
         }
     }
 
-    public Node pderiv(String var) {
+    public Node pderiv(String var) throws Exception {
         switch(op) { 
             case Plus: return (new OpNode(Op.Plus, left.pderiv(var), right.pderiv(var))).reduce();
             case Minus: return (new OpNode(Op.Minus, left.pderiv(var), right.pderiv(var))).reduce();
             case Times: { 
                 return (new OpNode(Op.Plus,
-                                   new OpNode(Op.Times, left.deriv(var), right),
+                                   new OpNode(Op.Times, left.pderiv(var), right),
                                    new OpNode(Op.Times, left, right.pderiv(var))
                                   )
                        ).reduce();
             }
             case Divide: {
-                OpNode numerator = (new OpNode(Op.Minus, 
+                Node numerator = (new OpNode(Op.Minus, 
                                                new OpNode(Op.Times, left.pderiv(var), right), 
                                                new OpNode(Op.Times, left, right.pderiv(var))
                                               )
                                    ).reduce();
-                OpNode denominator = new OpNode(Op.Hat, right, new NumNode(2)); 
+                Node denominator = new OpNode(Op.Hat, right, new NumNode(2)); 
                 return (new OpNode(Op.Divide, numerator, denominator)).reduce();
             }
             case Hat: { 
@@ -491,33 +510,27 @@ class OpNode extends Node {
         }
     }
 
-
-    public int size() {
-        return left.size() + right.size()+1;
-    }
-
     public Op getOp() { return this.op; }
 
     public Node reduce() throws Exception {
         Node l = left.reduce();
         Node r = right.reduce();
-        if (l instanceof NumNode) {
-            if (l.eval() == 0) return new NumNode(0);
-            if (l.eval() == 1) return r; 
-            if (r instanceof NumNode) { 
-                switch(op) { 
-                    case Plus: return new NumNode(l.eval() + r.eval());
-                    case Minus: return new NumNode(l.eval() - r.eval());
-                    case Times: return new NumNode(l.eval() * r.eval());
-                    case Divide: return new NumNode(l.eval() / r.eval());
-                    case Hat: return new NumNode(Math.pow(l.eval(), r.eval()));
-                    default: throw new Exception("invalid operator"); 
-                }
+        if (l instanceof NumNode && r instanceof NumNode) { 
+            switch(op) { 
+                case Plus: return new NumNode(l.eval() + r.eval());
+                case Minus: return new NumNode(l.eval() - r.eval());
+                case Times: return new NumNode(l.eval() * r.eval());
+                case Divide: return new NumNode(l.eval() / r.eval());
+                case Hat: return new NumNode(Math.pow(l.eval(), r.eval()));
+                default: throw new Exception("invalid operator"); 
             }
         }
-        if (r instanceof NumNode) {
-            if (r.eval() == 0) return new NumNode(0);
-            if (r.eval() == 1) return l; 
+        else if (l instanceof NumNode && !(r instanceof NumNode)) {
+            if (l.eval() == 1 && op == Op.Times) return r;
+        }
+        else if (!(l instanceof NumNode) && r instanceof NumNode) {
+            if (op == Op.Times && r.eval() == 1) return l;
+            else if (op == Op.Divide && r.eval() == 1) return l;
         }
         return new OpNode(op, l, r); //the OpNode is irreducible 
     }
@@ -525,50 +538,62 @@ class OpNode extends Node {
 }
 
 class VarNode extends Node { 
+
     String name;
 
-    public String toString() { return name; }
-    
-    public double eval(HashMap<String, Double> argList) throws Exception {
-        Double dd = argList.get( name ); //gets the value corresponding to the variable.
-        if (dd==null)  
-            throw new Exception( "Variable " + name + " has no value mapping" );
-        return dd.doubleValue();    
-    }
-    
-    VarNode(String name) { 
+    public VarNode(String name) { 
         this.name = name; 
         left = null;
         right = null; 
     }
 
-    public Node pderiv(String var) {
+    public void print(int depth) {
+        Node.printSpaces(depth);
+        System.out.print(name);
+    }
+
+    public String toString() { return name; }
+    
+    public double eval(HashMap<String, Double> argList) throws Exception {
+        Double val = argList.get(name); //gets the value corresponding to the variable.
+        if (val == null) {  
+            throw new Exception( "Variable " + name + " has no value mapping" );
+        }
+        return val.doubleValue();    
+    }
+    
+    public Node pderiv(String var) throws Exception {
         if (name.equals(var)) return new NumNode(1);
         else return new NumNode(0);
     }
     
-    public int size() { return 1; }
-
     public Node reduce() throws Exception {
         return this;
     }
+
 }
 
 class NumNode extends Node { 
+
     double val;
+
+    public NumNode(double val) { 
+        this.val = val; 
+        left = null;
+        right = null;
+    }
+
+    public void print(int depth) { 
+        Node.printSpaces(depth);
+        System.out.print(val);    
+    }
 
     public String toString() { return Double.toString(val); }
 
     public double eval() { return val; }
     public double eval(HashMap<String, Double> argList) throws Exception { return val; }
 
-    NumNode(double val) { 
-        this.val = val; 
-        left = null;
-        right = null;
-    }
-
-    public Node pderiv(String var) {
+    public Node pderiv(String var) throws Exception {
         return new NumNode(0);
     }
 
@@ -576,10 +601,10 @@ class NumNode extends Node {
         return this;
     }   
 
-    public int size() { return 1; }
 }
 
 class FuncNode extends Node { 
+
     Func name;
     Node argExpr;
 
@@ -589,6 +614,15 @@ class FuncNode extends Node {
         left = null;
         right = null;
     }   
+
+    public void print(int depth) {
+        Node.printSpaces(depth);
+        System.out.println(name.toString()+"[");
+        argExpr.print(depth+1);
+        System.out.println();
+        Node.printSpaces(depth);
+        System.out.print("]");
+    }
 
     void printFuncSpaces() { 
         for (int i=0; i<name.toString().length(); i++) System.out.print(" ");
@@ -651,7 +685,7 @@ class FuncNode extends Node {
         }
     }
 
-    public Node pderiv(String var) {
+    public Node pderiv(String var) throws Exception {
         switch (name) {
             case Sin: return new OpNode(Op.Times, new FuncNode(Func.Cos, argExpr), argExpr.pderiv(var)); 
             case Cos: return new OpNode(Op.Times, 
@@ -685,14 +719,13 @@ class FuncNode extends Node {
         return name + "[" + argExpr.toString() + "]";
     }
 
-    public int size() { return 1+argExpr.size(); }
-
     public Node reduce() throws Exception {
     /*    if (argExpr instanceof NumNode) { 
             return new NumNode(argExpr.eval(argExpr.val));
         } */
         return this;
     }    
+
 }
 
 class SumNode extends Node { 
@@ -709,6 +742,16 @@ class SumNode extends Node {
         this.limit = limit;
     }
     
+    public void print(int depth) {
+        Node.printSpaces(depth);
+        System.out.println("sum(" + var + ", start = " + start + ", limit = " + limit + ")");
+        argExpr.print(depth+1);
+    }
+
+    public String toString() {
+        return "sum("+ argExpr.toString() + ", " + var + ", " + start + ", " + limit + ")"; 
+    }
+
     public double eval(HashMap<String, Double> argList) throws Exception {
         Double prev = argList.get( var );
         double accum = 0;
@@ -720,17 +763,9 @@ class SumNode extends Node {
         return accum;
     }
 
-    public Node pderiv(String var) { return null; }
+    public Node pderiv(String var) throws Exception { return null; }
 
-    public String toString() {
-        return "sum("+ argExpr.toString() + ", " + var + ", " + start + ", " + limit + ")"; 
-    }
-
-    public int size() { return 1; }
-
-    public Node reduce() throws Exception {
-        return this;
-    }
+    public Node reduce() throws Exception { return this; }
 }
 
 class ProdNode extends Node { 
@@ -747,6 +782,16 @@ class ProdNode extends Node {
         this.limit = limit;
     }
     
+    public void print(int depth) {
+        Node.printSpaces(depth);
+        System.out.println("prod(" + var + ", start = " + start + ", limit = " + limit + ")");
+        argExpr.print(depth+1);
+    }
+
+    public String toString() {
+        return "prod("+ argExpr.toString() + ", " + var + ", " + start + ", " + limit + ")"; 
+    }
+
     public double eval(HashMap<String, Double> argList) throws Exception {
         double accum = 1;
         Double prev = argList.get( var );
@@ -758,11 +803,7 @@ class ProdNode extends Node {
         return accum;
     }
 
-    public Node pderiv(String var) { return null; }
-
-    public String toString() {
-        return "prod("+ argExpr.toString() + ", " + var + ", " + start + ", " + limit + ")"; 
-    }
+    public Node pderiv(String var) throws Exception { return null; }
 
     public Node reduce() throws Exception {
         return this;
@@ -871,14 +912,24 @@ class RexNode extends Node {
 
     };
     
-    RexNode( Node argExpr, int limit ) {
+    public RexNode(Node argExpr, int limit) {
         this.argExpr = argExpr;
         this.limit = (limit > 300 ? 300 : limit);
         this.left = null;
         this.right = null;
     }
 
-    public Node pderiv(String var) { return null; }
+    public void print(int depth) {
+        Node.printSpaces(depth); 
+        System.out.println("rex(limit = " + limit);
+        argExpr.print(depth+1);
+    }
+
+    public String toString(String var) {
+        return "rex(" + argExpr.toString() + ", " + limit + ")";
+    }
+
+    public Node pderiv(String var) throws Exception { return null; }
 
     public double eval(HashMap<String, Double> argList) throws Exception {
     // source : David Mumford's blog [http://www.dam.brown.edu/people/mumford/blog/2014/RiemannZeta.html]
@@ -888,10 +939,6 @@ class RexNode extends Node {
             result += Math.cos( Math.log(x) * zeta_zeros[i] );
         }
         return (1 - 2*result/Math.sqrt(x) - 1 / (x*x*x-x));
-    }
-
-    public String toString(String var) {
-        return "rex(" + argExpr.toString() + ", " + limit + ")";
     }
 
     public Node reduce() throws Exception {
@@ -953,14 +1000,14 @@ Variable ::=
 
 public class Parser { 
 
-    String input;
+    String in;
     Tokenizer str;
     Node root;
     HashMap<String, Double> argList;
 
-    public Parser(Tokenizer str) { 
-        this.input = str.in;
-        this.str = str;
+    public Parser(String in) { 
+        this.in = in;
+        str = new Tokenizer(in);
         argList = new HashMap<String, Double>();
         try { 
             root = expr();
@@ -1211,8 +1258,7 @@ System.out.println("      factor -->");
             try { 
                 s = generateFuzzTestString(len);
                 System.out.println(s);
-                Tokenizer T = new Tokenizer(s);
-                Parser P = new Parser(T);
+                Parser P = new Parser(s);
                 System.out.println(P.root.toString()); 
             }       
             catch(Exception e) { 
@@ -1222,8 +1268,7 @@ System.out.println("      factor -->");
     }
 
     public static void testParser(String[] args) {
-        Tokenizer T = new Tokenizer(args[0]);
-        Parser P = new Parser(T);
+        Parser P = new Parser(args[0]);
         System.out.println(P.root.toString());
     }
 
@@ -1232,51 +1277,44 @@ System.out.println("      factor -->");
         for (int i=0; i<args.length; i++) {
             Tokenizer T = new Tokenizer(args[i]); 
             while (true) {
-            Tok t = T.nextToken(); 
-            System.out.print(t);
-            if (t == Tok.VARIABLE || t ==Tok.FUNCTION) System.out.print(", " + T.strVal);
-            if (t == Tok.NUMBER) System.out.print(", " + T.numVal);
-            if (t == Tok.EOS) { 
-                System.out.println();
-                break; 
-            }
+                Tok t = T.nextToken(); 
+                System.out.print(t);
+                if (t == Tok.VARIABLE || t ==Tok.FUNCTION) System.out.print(", " + T.strVal);
+                if (t == Tok.NUMBER) System.out.print(", " + T.numVal);
+                if (t == Tok.EOS) { 
+                    System.out.println();
+                    break; 
+                }
                 System.out.println();
             }
         }
     }
 
-    public static void testFunction(String[] args) {
-        System.out.println("Test Code");
-        Function f = new Function(args[0]);
-        f.print();
-        f.printArgList();
-        try { 
-            System.out.println("f(" + Double.parseDouble(args[1]) + ") = "
-                                + f.value(Double.parseDouble(args[1])));
-        }
-        catch (Exception e) {
-            e.printStackTrace();
-        }
-    }
 
     public static void testPderiv(String[] args) {
         
     }
 
     public static void testToString(String[] args) {
-        Function f = new Function(args[0]);
-        f.print();
+        Parser P = new Parser(args[0]);
+        Node tree = P.root;
+        System.out.println(tree.toString());
+    }
+
+    public static void testPrint(String[] args) {
+        Parser P = new Parser(args[0]);
+        Node tree = P.root;
+        tree.print();
     }
 
     public static void main(String[] args) { 
-        testParser(args);
         // testTokenizer(args);
         //testFunction(args);
         //testOpCompareTo(args);
         //testToString(args);
+        testPrint(args);
         //testDeriv(args);
         //testNewton(args);
     }
 
 }
-
