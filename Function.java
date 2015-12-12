@@ -2,14 +2,12 @@ import java.util.HashMap;
 
 public class Function {
 
-    String in;
     Node tree;
     HashMap<String, Double> argList;
     static double CONTINUITY_INCREMENT = .00000001;
-    static double MARGIN_OF_ERROR = .1;
+    static double CONTINUITY_MARGIN_OF_ERROR = .1;
 
-    public Function(String in, Node tree, HashMap<String, Double> argList) {
-        this.in = in;
+    public Function(Node tree, HashMap<String, Double> argList) {
         this.tree = tree;
         this.argList = argList;
     }
@@ -30,7 +28,7 @@ public class Function {
             argList.replace("x", point[0]); 
             argList.replace("y", point[1]);
         }
-        else if (argList.size() > 2) throw new Exception("ERROR: TOO_MANY_ARGUMENTS");
+        else if (argList.size() > 2) throw new Exception("ERROR: ARGLIST_TOO_BIG");
         return tree.eval(argList);
     }
     
@@ -48,11 +46,11 @@ public class Function {
                 for (double l = p - 5 * CONTINUITY_INCREMENT; l < p; l += CONTINUITY_INCREMENT) {
                     double fy = value(l); 
                     //System.out.println("x="+x+", fy="+fy+", v="+v);
-                    if ( Math.abs(v - fy) > MARGIN_OF_ERROR ) return false;
+                    if ( Math.abs(v - fy) > CONTINUITY_MARGIN_OF_ERROR ) return false;
                 }
                 for (double r = p + 5 * CONTINUITY_INCREMENT; r > p; r -= CONTINUITY_INCREMENT) {
                     double fy = value(r); 
-                    if ( Math.abs(v - fy) > MARGIN_OF_ERROR ) return false;
+                    if ( Math.abs(v - fy) > CONTINUITY_MARGIN_OF_ERROR ) return false;
                 }
             }
             catch (Exception e) { 
@@ -149,7 +147,7 @@ public class Function {
                                ") = " + func.isContinuous(val)
                               ); 
         }
-        catch (Exception e) { e.printStackTrace(); }
+        catch (Exception e) { e.printStackTrace(); } 
     }
 
     public static void main(String[] args) {
@@ -161,20 +159,22 @@ public class Function {
 }
 
 //f(x, y) = 0;
-class Curve {
+class ZeroLevelSet {
 
-    String in;
     Function func;
     HashMap<String, Double> argList;
     
-    public Curve(String in, Function func, HashMap<String, Double> argList) {
-        this.in = in;
+    public ZeroLevelSet(Function func, HashMap<String, Double> argList) {
         this.func = func;
         this.argList = argList;
     }
 
-    public double value(double... point) throws Exception {
+    public double lhsvalue(double... point) throws Exception {
         return func.value(point); 
+    }
+
+    public ArrayList<Point> findPoints(double xmin, double xmax) {
+         
     }
 
 }

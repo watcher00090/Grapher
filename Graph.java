@@ -43,7 +43,7 @@ implements ComponentListener, WindowListener, KeyListener,
 
     Point target = new Point();
 
-    //for dragging the curve around
+    //for dragging the function around
     int mx1;
     int my1;
 
@@ -106,19 +106,19 @@ implements ComponentListener, WindowListener, KeyListener,
             }
             if (inputbar.getText().equals("") ) {
                 graph.setFunction(null);
-                graph.setCurve(null);
+                graph.setZeroLevelSet(null);
             }
             else { 
                 if ( !(str.equals(inputbar.getText())) ) {
                     Parser P = new Parser(inputbar.getText());
-                    Function func = new Function(inputbar.getText(), P.root, P.argList);
+                    Function func = new Function(P.root, P.argList);
                     if (func.isMultivariable()) {
                         graph.setFunction(null);
-                        graph.setCurve(new Curve(inputbar.getText(), func, func.argList));
-System.out.println("Parsed a curve");
+                        graph.setZeroLevelSet(new ZeroLevelSet(func, func.argList));
+System.out.println("Parsed a zerolevelset");
                     }
                     else {
-                        graph.setCurve(null);
+                        graph.setZeroLevelSet(null);
                         graph.setFunction(func);
                     }
                 }
@@ -270,13 +270,13 @@ public class Graph extends Canvas {
     double yincrement = 1;
 
     Function func = null;
-    Curve curve = null;
+    ZeroLevelSet zerolevelset = null;
 
     ArrayList<ArrayList<Integer>> xpoints = new ArrayList<ArrayList<Integer>>();
     ArrayList<ArrayList<Integer>> ypoints = new ArrayList<ArrayList<Integer>>();
 
     static int NUM_POINTS = 10000;
-    static double CURVE_TRACING_THRESHOLD = .01;
+    static double CURVE_TRACING_THRESHOLD = .1;
 
     static final int TARGET_STRING_HORIZONTAL_OFFSET = 10;
     static final int TARGET_STRING_VERTICAL_OFFSET = 10;
@@ -512,7 +512,7 @@ public class Graph extends Canvas {
     public void setYIncrement(double yincrement) { this.yincrement = yincrement; }
 
     public void setFunction(Function func) { this.func = func; }
-    public void setCurve(Curve curve) { this.curve = curve; }
+    public void setZeroLevelSet(ZeroLevelSet zerolevelset) { this.zerolevelset = zerolevelset; }
 
     public void updateViewingWindow(double xmin, double xmax, double ymin, double ymax) {
         this.xmin = xmin;
@@ -561,7 +561,7 @@ public class Graph extends Canvas {
         g.fillRect(0,0, WIDTH, HEIGHT);
         paintAxesAndTickmarks(g);
         if (func != null) paintFunction(g);
-        else if (curve != null) paintCurve(g);
+        else if (zerolevelset != null) paintZeroLevelSet(g);
     } 
    
     public void paintAxesAndTickmarks(Graphics g) {
@@ -750,19 +750,21 @@ System.out.println("found function of x");
 
     }
 
-    public void paintCurve(Graphics g) {
+    public void paintZeroLevelSet(Graphics g) {
         g.setColor(Color.BLACK);
+        double tmp = 0;
         try {
-            for (int rx = HORIZONTAL_BORDER_OFFSET; rx <= WIDTH - HORIZONTAL_BORDER_OFFSET ; rx++) {
-                for (int ry = VERTICAL_BORDER_OFFSET; ry <= HEIGHT - VERTICAL_BORDER_OFFSET ; ry++) {
-                    double px = renderXToMathematicalX(rx);
-                    double py = renderYToMathematicalY(ry);
+            for (double x = xmin; x <= xmax; x += 10*xrange/NUM_POINTS) {
+                for (double y = ymin; y <= ymax; y += 10*yrange/NUM_POINTS) {
 //System.out.println("(" + px + ", " + py + ")"); 
-//System.out.println("curve.value(" + px + ", " + py + ") = " + curve.value(px, py));
+//System.out.println("zerolevelset.lhsvalue(" + px + ", " + py + ") = " + zerolevelset.lhsvalue(px, py));
 //System.out.println();
-                    if (Math.abs(curve.value(px, py)) <= CURVE_TRACING_THRESHOLD) {
-                        g.fillOval(rx, ry, 2, 2);
+                    double val = zerolevelset.lhsvalue(x, y);
+                    if (val * tmp < 0) {
+                        g.fillOval(mathematicalXToRenderX(x), 
+                                   mathematicalYToRenderY(y), 2, 2);
                     }
+                    tmp = val;
                 }
             }    
         }
