@@ -1,4 +1,6 @@
 import java.util.HashMap;
+import java.util.ArrayList;
+import java.awt.Point;
 
 public class Function {
 
@@ -112,7 +114,7 @@ public class Function {
 
     public static void testFunction(String[] args) {
         Parser P = new Parser(args[0]);
-        Function func = new Function(args[0], P.root, P.argList);
+        Function func = new Function(P.root, P.argList);
         System.out.println();
         func.print();
         System.out.println();
@@ -139,7 +141,7 @@ public class Function {
 
     public static void testIsContinuous(String[] args) {
         Parser P = new Parser(args[0]);
-        Function func = new Function(args[0], P.root, P.argList);
+        Function func = new Function(P.root, P.argList);
         func.print();
         Double val = Double.parseDouble(args[1]);
         try { 
@@ -174,7 +176,7 @@ class ZeroLevelSet {
     }
 
     public ArrayList<Point> findPoints(double xmin, double xmax) {
-         
+        return null;     
     }
 
 }

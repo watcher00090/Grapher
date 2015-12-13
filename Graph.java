@@ -754,8 +754,8 @@ System.out.println("found function of x");
         g.setColor(Color.BLACK);
         double tmp = 0;
         try {
-            for (double x = xmin; x <= xmax; x += 10*xrange/NUM_POINTS) {
-                for (double y = ymin; y <= ymax; y += 10*yrange/NUM_POINTS) {
+            for (double x = xmin; x <= xmax; x += 100*xrange/NUM_POINTS) {
+                for (double y = ymin; y <= ymax; y += 100*yrange/NUM_POINTS) {
 //System.out.println("(" + px + ", " + py + ")"); 
 //System.out.println("zerolevelset.lhsvalue(" + px + ", " + py + ") = " + zerolevelset.lhsvalue(px, py));
 //System.out.println();
