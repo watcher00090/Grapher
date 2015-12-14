@@ -303,12 +303,15 @@ abstract class Node {
     Node right;
     static final int NUM_SPACES = 2;
 
-    abstract double eval(HashMap<String, Double> argList) throws Exception; 
+    abstract Node eval(HashMap<String, Double> argList) throws Exception; 
     abstract Node reduce() throws Exception; 
     abstract Node pderiv(String var) throws Exception;
     abstract void print(int depth);
 
-    public double eval() { return 0; }
+    public double eval() throws Exception {
+        throw new Exception("ERROR: ONLY_IMPLEMENTED_FOR_NUMNODES");
+    }
+
     public Op getOp() { return Op.Undef; }
 
     public void print() { 
@@ -352,31 +355,31 @@ class TermList extends Node {
         }
     }
 
-    public void add(int sgn, Node term) {
-        signv.add(new Integer(sgn));
+    public void add(Node term, int sgn) {
         termv.add(term);
+        signv.add(new Integer(sgn));
     }
 
-    public double eval(HashMap<String, Double> argList) throws Exception {
-        double result = 0.0;
+    public Node eval(HashMap<String, Double> argList) throws Exception {
+        double constsum = 0.0; //combine all constant terms together
+        TermList list = new TermList();
         for (int i=0; i<termv.size(); i++) {
-            double d = termv.get(i).eval(argList);
-            if (signv.get(i).intValue() == -1) d *= -1;
-            result += d;
+            Node t = termv.get(i).eval(argList);
+            list.add(t, signv.get(i));
         }
-        return result;
+        return list.reduce();
     }
 
     public Node pderiv(String var) throws Exception { 
         TermList result = new TermList();
         if (termv.size() == 0) {
-            result.add(1, new NumNode(1));
+            result.add(new NumNode(1), 1);
             return result;
         }
         for (int i = 0; i<termv.size(); i++) {
-            result.add(signv.get(i).intValue(), termv.get(i).pderiv(var));
+            result.add(termv.get(i).pderiv(var), signv.get(i).intValue());
         }
-        return result;
+        return result.reduce();
     }
 
     public String toString() {
@@ -400,12 +403,28 @@ class TermList extends Node {
     public Node reduce() throws Exception {
         if (termv.size() == 0) throw new Exception("ERROR: INVALID_SYMANTICS");
         if (termv.size() == 1) { 
-            if (signv.get(0) == -1) return (new OpNode(Op.Times, new NumNode(-1), termv.get(0))).reduce(); 
+            if (signv.get(0) == -1) return (new OpNode(Op.Times, 
+                                                       new NumNode(-1), 
+                                                       termv.get(0))
+                                           ).reduce(); 
             else return termv.get(0).reduce();
         } 
-        //double constsum = 0;
-        System.out.println("returning this");
-        return this;
+        TermList list = new TermList();
+        double constsum = 0;
+        for (int i=0; i<termv.size(); i++) {
+            Node t = termv.get(i).reduce();
+            if (t instanceof NumNode) constsum += t.eval() * signv.get(i);
+            else list.add(t, signv.get(i));
+        }
+        list.add(new NumNode(constsum), 1);
+        if (list.termv.size() == 1) { 
+            if (list.signv.get(0) == -1) return (new OpNode(Op.Times, 
+                                                       new NumNode(-1), 
+                                                       list.termv.get(0))
+                                           ).reduce(); 
+            else return list.termv.get(0).reduce();
+        } 
+        return list;
     }
     
 }
@@ -431,79 +450,108 @@ class OpNode extends Node {
         return left.toString() + op.toString() + "(" + right.toString() + ")";
     }
 
-    public double eval(HashMap<String, Double> argList) throws Exception {         
+    public Node eval(HashMap<String, Double> argList) throws Exception {         
         switch(op) { 
-            case Plus: return left.eval(argList) + right.eval(argList);
-            case Minus: return left.eval(argList) - right.eval(argList);
-            case Times: return left.eval(argList) * right.eval(argList);
-            case Divide: {
-                if (right.eval(argList) == 0) throw new Exception("division by 0");
-                    return left.eval(argList) / right.eval(argList);
-                }
-            case Hat: return Math.pow(left.eval(argList), right.eval(argList));
+            case Plus: 
+                return (new OpNode(Op.Plus, left.eval(argList), right.eval(argList))).reduce();
+            case Minus: 
+                return (new OpNode(Op.Minus, left.eval(argList), right.eval(argList))).reduce();
+            case Times: 
+                return (new OpNode(Op.Times, left.eval(argList), right.eval(argList))).reduce();
+            case Divide: 
+                if (right.eval(argList) instanceof NumNode && 
+                    right.eval(argList).equals(new NumNode(0)))
+                    throw new Exception("division by 0");
+                return (new OpNode(Op.Divide, left.eval(argList), right.eval(argList))).reduce();
+            case Hat: 
+                return (new OpNode(Op.Hat, left.eval(argList), right.eval(argList))).reduce();
             default: throw new Exception("invalid operator");
         }
     }
 
     public Node pderiv(String var) throws Exception {
         switch(op) { 
-            case Plus: return (new OpNode(Op.Plus, left.pderiv(var), right.pderiv(var))).reduce();
-            case Minus: return (new OpNode(Op.Minus, left.pderiv(var), right.pderiv(var))).reduce();
+            case Plus: return (new OpNode(Op.Plus, 
+                                          left.pderiv(var), 
+                                          right.pderiv(var)
+                               )
+                       ).reduce();
+            case Minus: return (new OpNode(Op.Minus, 
+                                           left.pderiv(var), 
+                                           right.pderiv(var)
+                                )
+                        ).reduce();
             case Times: { 
                 return (new OpNode(Op.Plus,
                                    new OpNode(Op.Times, left.pderiv(var), right),
                                    new OpNode(Op.Times, left, right.pderiv(var))
-                                  )
-                       ).reduce();
+                        )
+                ).reduce();
             }
             case Divide: {
                 Node numerator = (new OpNode(Op.Minus, 
-                                               new OpNode(Op.Times, left.pderiv(var), right), 
-                                               new OpNode(Op.Times, left, right.pderiv(var))
-                                              )
-                                   ).reduce();
+                                             new OpNode(Op.Times, 
+                                                        left.pderiv(var), 
+                                                        right
+                                             ), 
+                                             new OpNode(Op.Times, 
+                                                        left, 
+                                                        right.pderiv(var))
+                                             )
+                                 ).reduce();
                 Node denominator = new OpNode(Op.Hat, right, new NumNode(2)); 
                 return (new OpNode(Op.Divide, numerator, denominator)).reduce();
             }
             case Hat: { 
-                if ( (left instanceof NumNode) && (right instanceof NumNode) ) return new NumNode(0);
+                if ( (left instanceof NumNode) && (right instanceof NumNode) ) { 
+                    return new NumNode(0);
+                }
                 if (left instanceof NumNode) { // n ^ g(x)
                     return (new OpNode(Op.Times, 
                                        new OpNode(Op.Times, 
                                                   new NumNode(Math.log(left.eval())), 
-                                                  right.pderiv(var)), 
+                                                  right.pderiv(var)
+                                       ), 
                                        this
-                                      )
-                           ).reduce(); 
+                            )
+                    ).reduce(); 
                 }
                 if (right instanceof NumNode) { //f(x) ^ n 
                     return (new OpNode(Op.Times, 
-                                       new OpNode(Op.Times, right, left.pderiv(var)), 
-                                       new OpNode(Op.Hat, left, new NumNode(right.eval()-1))
-                                      )
-                           ).reduce();  
+                                       new OpNode(Op.Times,
+                                                  right, 
+                                                  left.pderiv(var)), 
+                                       new OpNode(Op.Hat, 
+                                                  left, 
+                                                  new NumNode(right.eval()-1))
+                            )
+                   ).reduce();  
                 }
                 else { //f(x) ^ g(x)
                     return (new OpNode(Op.Plus,
                                        new OpNode(Op.Times, 
-                                                  new OpNode(Op.Times, left.pderiv(var), right), 
+                                                  new OpNode(Op.Times, 
+                                                             left.pderiv(var), 
+                                                             right), 
                                                   new OpNode(Op.Hat, 
                                                              left, 
                                                              new OpNode(Op.Minus, 
                                                                         right,
                                                                         new NumNode(1)
-                                                                       ) 
-                                                            )
-                                                 ),
+                                                             ) 
+                                                   )
+                                       ),
                                        new OpNode(Op.Times, 
                                                   new OpNode(Op.Times, 
-                                                             new FuncNode(Func.Ln, left), 
+                                                             new FuncNode(Func.Ln, 
+                                                                          left
+                                                             ), 
                                                              right.pderiv(var)
-                                                            ), 
+                                                  ), 
                                                   this
-                                                 )
-                                     )
-                           ).reduce();
+                                       )
+                            )
+                    ).reduce();
                 }
             }
             default: return null;
@@ -526,11 +574,16 @@ class OpNode extends Node {
             }
         }
         else if (l instanceof NumNode && !(r instanceof NumNode)) {
+            if (l.eval() == 0 && op == Op.Times && r instanceof VarNode) return new NumNode(0);
             if (l.eval() == 1 && op == Op.Times) return r;
         }
         else if (!(l instanceof NumNode) && r instanceof NumNode) {
+            if (l instanceof VarNode && 
+                op == Op.Times && 
+                r.eval() == 0) return new NumNode(0);
             if (op == Op.Times && r.eval() == 1) return l;
-            else if (op == Op.Divide && r.eval() == 1) return l;
+            if (op == Op.Divide && r.eval() == 1) return l;
+            if (op == Op.Hat && r.eval() == 1) return l;
         }
         return new OpNode(op, l, r); //the OpNode is irreducible 
     }
@@ -554,12 +607,16 @@ class VarNode extends Node {
 
     public String toString() { return name; }
     
-    public double eval(HashMap<String, Double> argList) throws Exception {
-        Double val = argList.get(name); //gets the value corresponding to the variable.
-        if (val == null) {  
-            throw new Exception( "Variable " + name + " has no value mapping" );
+    public Node eval(HashMap<String, Double> argList) throws Exception {
+        if (argList.get(name) == null) {
+// System.out.println("mapping to " + name + " is empty");
+            return new VarNode(name);
         }
-        return val.doubleValue();    
+        else {
+// System.out.println("argList.get(name) = " + argList.get(name));
+            Double D = argList.get(name); //gets the value corresponding to the variable.
+            return new NumNode(D.doubleValue());    
+        }
     }
     
     public Node pderiv(String var) throws Exception {
@@ -591,7 +648,7 @@ class NumNode extends Node {
     public String toString() { return Double.toString(val); }
 
     public double eval() { return val; }
-    public double eval(HashMap<String, Double> argList) throws Exception { return val; }
+    public Node eval(HashMap<String, Double> argList) throws Exception { return new NumNode(val); }
 
     public Node pderiv(String var) throws Exception {
         return new NumNode(0);
@@ -628,48 +685,38 @@ class FuncNode extends Node {
         for (int i=0; i<name.toString().length(); i++) System.out.print(" ");
     }
         
-    public double eval(HashMap<String, Double> argList) throws Exception {
-        double d = argExpr.eval(argList);
+    public Node eval(HashMap<String, Double> argList) throws Exception {
+        Node interior = argExpr.eval(argList);
         switch (name) { 
-            case Sin: return Math.sin( d );
-            case Cos: return Math.cos( d );
-            case Tan: return Math.tan( d );
-            case Exp: return Math.pow( Math.E, d );
-            case Sqrt: return Math.sqrt( d );
-            case Abs: return Math.abs(d) ;
-            case Log: return Math.log10( d );            
-            case Ln: return Math.log( d );
-            case Arcsin: return Math.asin( d );
-            case Arccos: return Math.acos( d );
-            case Arctan: return Math.atan( d );
-            case Factorial: 
-                if ( d != Math.floor(d) ) 
-                    throw new Exception("FACTORIAL ON A NON-NATURAL");
-                if (d < 0) 
-                    throw new Exception("FACTORIAL ON A NEGATIVE INTEGER");
-                 double result = 1.0;
-                 while (d != 0) {
-                    result = result * d; 
-                    d--;
-                 }
-                return result;
+            case Sin: return (new FuncNode(Func.Sin, interior)).reduce();
+            case Cos: return (new FuncNode(Func.Cos, interior)).reduce();
+            case Tan: return (new FuncNode(Func.Tan, interior)).reduce();
+            case Exp: return (new OpNode(Op.Hat, new NumNode(Math.E), interior)).reduce();
+            case Sqrt: return (new FuncNode(Func.Sqrt, interior)).reduce();
+            case Abs: return (new FuncNode(Func.Abs, interior)).reduce();
+            case Log: return (new FuncNode(Func.Log, interior)).reduce();             
+            case Ln: return (new FuncNode(Func.Ln, interior)).reduce();
+            case Arcsin: return (new FuncNode(Func.Arcsin, interior)).reduce();
+            case Arccos: return (new FuncNode(Func.Arccos, interior)).reduce();
+            case Arctan: return (new FuncNode(Func.Arctan, interior)).reduce();
+            case Factorial: return (new FuncNode(Func.Factorial, interior)).reduce();
             default: throw new Exception( "UNRECOGNIZED_FUNCTION" ); 
         }
     }
 
-    public double eval(double d) throws Exception {
+    public double funcEval(double d) throws Exception {
         switch (name) { 
-            case Sin: return Math.sin( d );
-            case Cos: return Math.cos( d );
-            case Tan: return Math.tan( d );
-            case Exp: return Math.pow( Math.E, d );
-            case Sqrt: return Math.sqrt( d );
+            case Sin: return Math.sin(d);
+            case Cos: return Math.cos(d);
+            case Tan: return Math.tan(d);
+            case Exp: return Math.pow(Math.E, d);
+            case Sqrt: return Math.sqrt(d);
             case Abs: return Math.abs(d) ;
-            case Log: return Math.log10( d );            
-            case Ln: return Math.log( d );
-            case Arcsin: return Math.asin( d );
-            case Arccos: return Math.acos( d );
-            case Arctan: return Math.atan( d );
+            case Log: return Math.log10(d);            
+            case Ln: return Math.log(d);
+            case Arcsin: return Math.asin(d);
+            case Arccos: return Math.acos(d);
+            case Arctan: return Math.atan(d);
             case Factorial: 
                 if ( d != Math.floor(d) ) 
                     throw new Exception("FACTORIAL ON A NON-NATURAL");
@@ -687,26 +734,44 @@ class FuncNode extends Node {
 
     public Node pderiv(String var) throws Exception {
         switch (name) {
-            case Sin: return new OpNode(Op.Times, new FuncNode(Func.Cos, argExpr), argExpr.pderiv(var)); 
-            case Cos: return new OpNode(Op.Times, 
-                                        new OpNode(Op.Times, new NumNode(-1), argExpr.pderiv(var)),
-                                        new FuncNode(Func.Sin, argExpr)
-                                       ); 
-            case Tan: return new OpNode(Op.Divide, argExpr.pderiv(var), 
-                                        new OpNode(Op.Hat, new FuncNode(Func.Cos, argExpr), new NumNode(2))
-                                       ); 
-            case Exp: return new OpNode(Op.Times, this, argExpr.pderiv(var)); 
-            case Sqrt: return new OpNode(Op.Divide,
-                                         argExpr.pderiv(var), 
-                                         new OpNode(Op.Times, 
-                                                    new NumNode(2), 
-                                                    new FuncNode(Func.Sqrt, argExpr)
-                                                   )
-                                        ); 
-            case Ln: return new OpNode(Op.Divide, 
-                                       new NumNode(1),
-                                       argExpr
-                                      );
+            case Sin: 
+                return (new OpNode(Op.Times, 
+                                   new FuncNode(Func.Cos, argExpr), 
+                                   argExpr.pderiv(var)
+                        )
+                ).reduce(); 
+            case Cos: 
+                return (new OpNode(Op.Times, 
+                                  new OpNode(Op.Times, new NumNode(-1), argExpr.pderiv(var)),
+                                  new FuncNode(Func.Sin, argExpr)
+                        )
+                ).reduce(); 
+            case Tan: 
+                return (new OpNode(Op.Divide, 
+                                  argExpr.pderiv(var), 
+                                  new OpNode(Op.Hat, 
+                                             new FuncNode(Func.Cos, argExpr),   
+                                             new NumNode(2)
+                                  )
+                        )
+                 ).reduce(); 
+            case Exp: 
+                return (new OpNode(Op.Times, this, argExpr.pderiv(var))).reduce(); 
+            case Sqrt: 
+                return (new OpNode(Op.Divide,
+                                  argExpr.pderiv(var), 
+                                  new OpNode(Op.Times, 
+                                             new NumNode(2), 
+                                             new FuncNode(Func.Sqrt, argExpr)
+                                  )
+                        )
+                ).reduce(); 
+            case Ln: 
+                return (new OpNode(Op.Divide, 
+                                  new NumNode(1),
+                                  argExpr
+                        )
+                ).reduce();
             case Abs: return null;    
             default: return null;
         }
@@ -720,10 +785,11 @@ class FuncNode extends Node {
     }
 
     public Node reduce() throws Exception {
-    /*    if (argExpr instanceof NumNode) { 
-            return new NumNode(argExpr.eval(argExpr.val));
-        } */
-        return this;
+        Node ae = argExpr.reduce();
+        if (ae instanceof NumNode) { 
+            return new NumNode(funcEval(ae.eval()));
+        }
+        return new FuncNode(name, ae);
     }    
 
 }
@@ -752,15 +818,19 @@ class SumNode extends Node {
         return "sum("+ argExpr.toString() + ", " + var + ", " + start + ", " + limit + ")"; 
     }
 
-    public double eval(HashMap<String, Double> argList) throws Exception {
-        Double prev = argList.get( var );
-        double accum = 0;
-        for (int i=start; i<=limit; i++) {
-            argList.replace( var, new Double(i) );
-            accum += argExpr.eval(argList);
-            if (prev != null) argList.replace(var, prev );
+    public Node eval(HashMap<String, Double> argList) throws Exception {
+        Double prev = argList.get(var);
+        TermList list = new TermList();
+        double constsum = 0;
+        for (int i = start; i <= limit; i++) {
+            argList.replace(var, new Double(i));
+            Node term = argExpr.eval(argList);
+            if (prev != null) argList.replace(var, prev);
+            if (term instanceof NumNode) constsum += term.eval();
+            else list.add(term, 1);
         }
-        return accum;
+        list.add(new NumNode(constsum), 1);
+        return list.reduce();
     }
 
     public Node pderiv(String var) throws Exception { return null; }
@@ -792,15 +862,19 @@ class ProdNode extends Node {
         return "prod("+ argExpr.toString() + ", " + var + ", " + start + ", " + limit + ")"; 
     }
 
-    public double eval(HashMap<String, Double> argList) throws Exception {
-        double accum = 1;
-        Double prev = argList.get( var );
-        for (int i=start; i<=limit; i++) {
-            argList.replace( var, new Double(i) );
-            accum *= argExpr.eval(argList);
+    public Node eval(HashMap<String, Double> argList) throws Exception {
+        Double prev = argList.get(var);
+        OpNode prod = new OpNode(Op.Times, new NumNode(1), new NumNode(1)); //nested OpNodes
+        double constprod = 1;
+        for (int i = start; i <= limit; i++) {
+            argList.replace(var, new Double(i));
+            Node term = argExpr.eval(argList);
             if (prev != null) argList.replace(var, prev);
+            if (term instanceof NumNode) constprod *= term.eval();
+            else prod = new OpNode(Op.Times, prod, term);
         }
-        return accum;
+        prod = new OpNode(Op.Times, prod, new NumNode(constprod));
+        return prod.reduce();
     }
 
     public Node pderiv(String var) throws Exception { return null; }
@@ -931,14 +1005,48 @@ class RexNode extends Node {
 
     public Node pderiv(String var) throws Exception { return null; }
 
-    public double eval(HashMap<String, Double> argList) throws Exception {
-    // source : David Mumford's blog [http://www.dam.brown.edu/people/mumford/blog/2014/RiemannZeta.html]
-        double x = argExpr.eval( argList);
-        double result = 0.0;
+    public Node eval(HashMap<String, Double> argList) throws Exception {
+    // source : David Mumford's blog 
+    // [http://www.dam.brown.edu/people/mumford/blog/2014/RiemannZeta.html]
+        Node interior = argExpr.eval(argList); //double x = argExpr.eval(argList)
+        TermList list = new TermList();
         for (int i=0; i<limit; i++) {
-            result += Math.cos( Math.log(x) * zeta_zeros[i] );
+            //result += Math.cos( Math.log(x) * zeta_zeros[i] );
+            Node term = new FuncNode(Func.Cos, 
+                                     new OpNode(Op.Times, 
+                                                new FuncNode(Func.Log, 
+                                                             interior), 
+                                                new NumNode(zeta_zeros[i])
+                                     )   
+                        );
+            list.add(term, 1);
         }
-        return (1 - 2*result/Math.sqrt(x) - 1 / (x*x*x-x));
+        //return (1 - 2*result/Math.sqrt(x) - 1 / (x*x*x-x));
+        return (new OpNode(Op.Minus, 
+                           new OpNode(Op.Minus, 
+                                      new NumNode(1),
+                                      new OpNode(Op.Times, 
+                                                 new NumNode(2),
+                                                 new OpNode(Op.Divide, 
+                                                            list,
+                                                            new FuncNode(Func.Sqrt,
+                                                                         interior
+                                                            )
+                                                  )
+                                       )
+                            ),
+                            new OpNode(Op.Divide, 
+                                       new NumNode(1), 
+                                       new OpNode(Op.Minus, 
+                                                  new OpNode(Op.Hat, 
+                                                             interior, 
+                                                             new NumNode(3)
+                                                  ),
+                                                  interior
+                                       )
+                           )
+                )
+        ).reduce();
     }
 
     public Node reduce() throws Exception {
@@ -1070,7 +1178,7 @@ public class Parser {
             }
             Node term = term();
             if (term != null) {
-                termlist.add(s, term);
+                termlist.add(term, s);
             }
             else break; 
         }
@@ -1234,6 +1342,12 @@ System.out.println("      factor -->");
         return null; 
     }    
 
+    public void printArgList() {
+        for (String var : argList.keySet()) {
+            System.out.println("(" + var + ", " + argList.get(var).doubleValue() + ")");
+        }
+    }
+
     public static String generateFuzzTestString(int length) { 
         char[] chars = {
             'x', '1', '+', '-', '*', '/', '(', ')', '^'
@@ -1292,7 +1406,20 @@ System.out.println("      factor -->");
 
 
     public static void testPderiv(String[] args) {
-        
+        Parser P = new Parser(args[0]);
+        Node tree = P.root;
+        tree.print();
+        System.out.println();
+        HashMap<String, Double> argList = P.argList; 
+        System.out.println("args[1]="+args[1]);
+        System.out.println();
+        try { 
+            Node ret = tree.pderiv(args[1]);
+            ret.print();
+        }
+        catch (Exception e) {
+            e.printStackTrace();
+        }
     }
 
     public static void testToString(String[] args) {
@@ -1307,14 +1434,38 @@ System.out.println("      factor -->");
         tree.print();
     }
 
+    public static void testEval(String[] args) {
+        Parser P = new Parser(args[0]);
+        Node tree = P.root;
+        tree.print();
+        System.out.println();
+        HashMap<String, Double> argList = P.argList; 
+        System.out.println("args[1]="+args[1]);
+        System.out.println("args[2]="+args[2]);
+        System.out.println();
+        argList.replace(args[1], Double.parseDouble(args[2]));
+        for (String s : argList.keySet()) { 
+            System.out.println("(" + s + ", " + argList.get(s) + ")");
+        }
+        System.out.println();
+        try { 
+            Node ret = tree.eval(argList);
+            ret.print();
+        }
+        catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+
     public static void main(String[] args) { 
-        // testTokenizer(args);
+        //testTokenizer(args);
         //testFunction(args);
         //testOpCompareTo(args);
         //testToString(args);
-        testPrint(args);
-        //testDeriv(args);
+        //testPrint(args);
+        testPderiv(args);
         //testNewton(args);
+        //testEval(args);
     }
 
 }
