@@ -83,12 +83,11 @@ public class Function {
         return false;
     }
 
-    public static double newton(Node func, Node deriv, String var, 
-                                HashMap<String, Double> argList, double x0, double threshold) {
+    public static double newton(Function func, Function deriv, 
+                                double x0, double threshold) {
         try {
-            while ( Math.abs(func.eval(argList)) > threshold && deriv.eval(argList) > threshold) { 
-                argList.replace(var, x0);
-                x0 = x0 - func.eval(argList) / deriv.eval(argList);
+            while ( Math.abs(func.value(x0)) > threshold && deriv.value(x0) > threshold) { 
+                x0 = x0 - func.value(x0) / deriv.value(x0);
             }
             return x0;
         }
@@ -100,14 +99,13 @@ public class Function {
 
     public static void testNewton(String[] args) {
         Parser P = new Parser(args[0]);
-        Node func = P.root;
+        Function func = new Function(P.root, P.argList);
         try { 
-            Node deriv = P.root.pderiv("x");
-            HashMap<String, Double> argList = P.argList;
+            Function deriv = new Function(P.root.pderiv("x"), P.argList);
             double x0 = Double.parseDouble(args[1]);
             double threshold = Double.parseDouble(args[2]);
             System.out.println("newton(func, deriv, "+x0+", "+threshold+") = "+
-                                newton(func, deriv, "x", argList, x0, threshold));
+                                newton(func, deriv, x0, threshold));
         }
         catch (Exception e) { 
             e.printStackTrace();
@@ -126,7 +124,7 @@ public class Function {
             try { 
                 double x = Double.parseDouble(args[1]);
                 double y = Double.parseDouble(args[2]);
-                System.out.println("f(" + x + "," + y + ") = " + 
+                System.out.println("f(" + x + ", " + y + ") = " + 
                     func.value(x, y)
                                   ); 
             }
@@ -155,8 +153,8 @@ public class Function {
     }
 
     public static void main(String[] args) {
-        //testFunction(args);
-        testIsContinuous(args);
+        testFunction(args);
+        //testIsContinuous(args);
         //testNewton(args);
     }
     

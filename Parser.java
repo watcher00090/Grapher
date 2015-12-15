@@ -299,8 +299,13 @@ class Tokenizer {
  * 
  */
 abstract class Node {
-    Node left; 
-    Node right;
+
+    Node left = null; 
+    Node right = null;
+
+    Vector<Integer> signv = null; //only defined for termlists
+    Vector<Node> termv = null;
+
     static final int NUM_SPACES = 2;
 
     abstract Node eval(HashMap<String, Double> argList) throws Exception; 
@@ -326,9 +331,6 @@ abstract class Node {
 }
 
 class TermList extends Node {
-
-    Vector<Integer> signv;
-    Vector<Node> termv;
 
     public TermList() {
         left = null;
@@ -356,8 +358,16 @@ class TermList extends Node {
     }
 
     public void add(Node term, int sgn) {
-        termv.add(term);
-        signv.add(new Integer(sgn));
+        if (term instanceof TermList) { //merge nested termlists
+            for (int i = 0; i < term.termv.size(); i++) {
+                termv.add(term.termv.get(i));
+                signv.add(term.signv.get(i) * sgn);
+            }
+        }
+        else { 
+            termv.add(term);
+            signv.add(new Integer(sgn));
+        }
     }
 
     public Node eval(HashMap<String, Double> argList) throws Exception {
@@ -416,7 +426,8 @@ class TermList extends Node {
             if (t instanceof NumNode) constsum += t.eval() * signv.get(i);
             else list.add(t, signv.get(i));
         }
-        list.add(new NumNode(constsum), 1);
+        if (constsum != 0) list.add(new NumNode(constsum), 1);
+        else if (constsum == 0 && list.termv.size() == 0) list.add(new NumNode(constsum), 1);
         if (list.termv.size() == 1) { 
             if (list.signv.get(0) == -1) return (new OpNode(Op.Times, 
                                                        new NumNode(-1), 
