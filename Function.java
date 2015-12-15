@@ -31,7 +31,9 @@ public class Function {
             argList.replace("y", point[1]);
         }
         else if (argList.size() > 2) throw new Exception("ERROR: ARGLIST_TOO_BIG");
-        return tree.eval(argList);
+        Node result = tree.eval(argList);
+        if (result instanceof NumNode) return result.eval();
+        throw new Exception("ERROR: TREE.EVAL()_RETURNED_EXPRESSION_BUT_VALUE_RETURNS_A_DOUBLE");
     }
     
     public void printArgList() {

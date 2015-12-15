@@ -482,6 +482,12 @@ class OpNode extends Node {
                                 )
                         ).reduce();
             case Times: { 
+                if (left instanceof NumNode && !(right instanceof NumNode)) {
+                    return (new OpNode(Op.Times, left, right.pderiv(var))).reduce();
+                }
+                if (!(left instanceof NumNode) && right instanceof NumNode) {
+                    return (new OpNode(Op.Times, left.pderiv(var), right)).reduce();
+                }
                 return (new OpNode(Op.Plus,
                                    new OpNode(Op.Times, left.pderiv(var), right),
                                    new OpNode(Op.Times, left, right.pderiv(var))
