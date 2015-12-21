@@ -63,7 +63,7 @@ implements ComponentListener, WindowListener, KeyListener,
         this.helpbutton = helpbutton;
         this.helpdialog = helpdialog;
 
-        inputbar.setText("x");
+        inputbar.setText("x^2+y^2-1");
         xminbar.setText("-5");
         xmaxbar.setText("5");
         yminbar.setText("-5");
@@ -754,8 +754,8 @@ System.out.println("found function of x");
         g.setColor(Color.BLACK);
         double tmp = 0;
         try {
-            for (double x = xmin; x <= xmax; x += 100*xrange/NUM_POINTS) {
-                for (double y = ymin; y <= ymax; y += 100*yrange/NUM_POINTS) {
+            for (double x = xmin; x <= xmax; x += 50*xrange/NUM_POINTS) {
+                for (double y = ymin; y <= ymax; y += 50*yrange/NUM_POINTS) {
 //System.out.println("(" + px + ", " + py + ")"); 
 //System.out.println("zerolevelset.lhsvalue(" + px + ", " + py + ") = " + zerolevelset.lhsvalue(px, py));
 //System.out.println();
@@ -766,6 +766,21 @@ System.out.println("found function of x");
                     }
                     tmp = val;
                 }
+                tmp = 0;
+            }    
+            for (double y = ymin; y <= ymax; y += 50*yrange/NUM_POINTS) {
+                for (double x = xmin; x <= xmax; x += 50*xrange/NUM_POINTS) {
+//System.out.println("(" + px + ", " + py + ")"); 
+//System.out.println("zerolevelset.lhsvalue(" + px + ", " + py + ") = " + zerolevelset.lhsvalue(px, py));
+//System.out.println();
+                    double val = zerolevelset.lhsvalue(x, y);
+                    if (val * tmp < 0) {
+                        g.fillOval(mathematicalXToRenderX(x), 
+                                   mathematicalYToRenderY(y), 2, 2);
+                    }
+                    tmp = val;
+                }
+                tmp = 0;
             }    
         }
         catch (Exception e) { e.printStackTrace(); }
