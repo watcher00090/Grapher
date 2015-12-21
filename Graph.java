@@ -753,9 +753,11 @@ System.out.println("found function of x");
     public void paintZeroLevelSet(Graphics g) {
         g.setColor(Color.BLACK);
         double tmp = 0;
+        double xincr = 25*xrange/NUM_POINTS;
+        double yincr = 25*yrange/NUM_POINTS;
         try {
-            for (double x = xmin; x <= xmax; x += 50*xrange/NUM_POINTS) {
-                for (double y = ymin; y <= ymax; y += 50*yrange/NUM_POINTS) {
+            for (double x = xmin; x <= xmax; x += xincr) {
+                for (double y = ymin; y <= ymax; y += yincr) {
 //System.out.println("(" + px + ", " + py + ")"); 
 //System.out.println("zerolevelset.lhsvalue(" + px + ", " + py + ") = " + zerolevelset.lhsvalue(px, py));
 //System.out.println();
@@ -768,8 +770,8 @@ System.out.println("found function of x");
                 }
                 tmp = 0;
             }    
-            for (double y = ymin; y <= ymax; y += 50*yrange/NUM_POINTS) {
-                for (double x = xmin; x <= xmax; x += 50*xrange/NUM_POINTS) {
+            for (double y = ymin; y <= ymax; y += yincr) {
+                for (double x = xmin; x <= xmax; x += xincr) {
 //System.out.println("(" + px + ", " + py + ")"); 
 //System.out.println("zerolevelset.lhsvalue(" + px + ", " + py + ") = " + zerolevelset.lhsvalue(px, py));
 //System.out.println();
