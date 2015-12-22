@@ -19,18 +19,14 @@ public class Function {
     }
 
     public double value(double... point) throws Exception {
-        if (point.length != argList.size() && argList.size() != 0) {
-            throw new Exception("ERROR: INVALID_NUMBER_OF_ARGUMENTS");
+        if (point.length == 1) {
+            argList.replace("x", point[0]);   
         }
-        if (argList.size() == 1) {
-            if (argList.containsKey("x")) argList.replace("x", point[0]);   
-            else if (argList.containsKey("y")) argList.replace("y", point[0]);
-        }
-        else if (argList.size() == 2) {
+        else if (point.length == 2) {
             argList.replace("x", point[0]); 
             argList.replace("y", point[1]);
         }
-        else if (argList.size() > 2) throw new Exception("ERROR: ARGLIST_TOO_BIG");
+        else if (point.length > 2) throw new Exception("TOO_MANY_ARGUMENTS");
         return tree.eval(argList);
     }
     
@@ -40,44 +36,34 @@ public class Function {
         }
     }
 
+    public void updateParam() {
+        argList.replace("param", argList.get("param") + 1);  
+    }
+
     public boolean isContinuous(double p) throws Exception {
-        if (argList.size() <= 1) {
-            double v = 0;
-            try { 
-                v = value(p);
-                for (double l = p - 5 * CONTINUITY_INCREMENT; l < p; l += CONTINUITY_INCREMENT) {
-                    double fy = value(l); 
-                    //System.out.println("x="+x+", fy="+fy+", v="+v);
-                    if ( Math.abs(v - fy) > CONTINUITY_MARGIN_OF_ERROR ) return false;
-                }
-                for (double r = p + 5 * CONTINUITY_INCREMENT; r > p; r -= CONTINUITY_INCREMENT) {
-                    double fy = value(r); 
-                    if ( Math.abs(v - fy) > CONTINUITY_MARGIN_OF_ERROR ) return false;
-                }
+        double v = 0;
+        try { 
+            v = value(p);
+            for (double l = p - 5 * CONTINUITY_INCREMENT; l < p; l += CONTINUITY_INCREMENT) {
+                double fy = value(l); 
+                //System.out.println("x="+x+", fy="+fy+", v="+v);
+                if ( Math.abs(v - fy) > CONTINUITY_MARGIN_OF_ERROR ) return false;
             }
-            catch (Exception e) { 
-                System.out.println("Exception at p = " + p);
-                e.printStackTrace();
-                if (e.getMessage().equals("division by 0")) return false; 
+            for (double r = p + 5 * CONTINUITY_INCREMENT; r > p; r -= CONTINUITY_INCREMENT) {
+                double fy = value(r); 
+                if ( Math.abs(v - fy) > CONTINUITY_MARGIN_OF_ERROR ) return false;
             }
-            return true;
         }
-        throw new Exception("ERROR: MULTIVARIATE CONTINUITY NOT YET IMPLEMENTED");
+        catch (Exception e) { 
+            System.out.println("Exception at p = " + p);
+            e.printStackTrace();
+            if (e.getMessage().equals("division by 0")) return false; 
+        }
+        return true;
     }
 
-    public boolean isMultivariable() {
-        if (argList.size() > 1) return true;
-        return false;
-    }
-
-    public boolean isFunctionOfX() {
-        if (argList.size() == 0) return true; //treating constants as functions of x
-        else if (argList.size() == 1 && argList.containsKey("x")) return true;
-        return false;
-    }
-
-    public boolean isFunctionOfY() {
-        if (argList.size() == 1 && argList.containsKey("y")) return true;
+    public boolean isBivariate() {
+        if (argList.containsKey("x") && argList.containsKey("y")) return true;
         return false;
     }
 
@@ -118,9 +104,9 @@ public class Function {
         System.out.println();
         func.print();
         System.out.println();
-        System.out.println("Multivariable: " + func.isMultivariable());
+        System.out.println("Bi-Variate: " + func.isBivariate());
         System.out.println();
-        if (func.isMultivariable()) {
+        if (func.isBivariate()) {
             try { 
                 double x = Double.parseDouble(args[1]);
                 double y = Double.parseDouble(args[2]);
@@ -153,8 +139,8 @@ public class Function {
     }
 
     public static void main(String[] args) {
-        //testFunction(args);
-        testIsContinuous(args);
+        testFunction(args);
+        //testIsContinuous(args);
         //testNewton(args);
     }
     
@@ -171,12 +157,8 @@ class ZeroLevelSet {
         this.argList = argList;
     }
 
-    public double lhsvalue(double... point) throws Exception {
+    public double funcValue(double... point) throws Exception {
         return func.value(point); 
-    }
-
-    public ArrayList<Point> findPoints(double xmin, double xmax) {
-        return null;     
     }
 
 }

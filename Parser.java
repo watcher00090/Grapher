@@ -10,8 +10,8 @@ enum State {
 //Token Types. UNDEF = pushback token when nothing's been pushed back, token returned when state is unknown.
 enum Tok { 
     LPAR, RPAR, PLUS, MINUS, TIMES, DIVIDE, HAT, NUMBER, VARIABLE, 
-    FUNCTION, SUMMATION, PRODUCT, REX, 
-    EQUALS, COMMA, EOS, UNDEF, INVALID, 
+    FUNCTION, SUMMATION, PRODUCT, REX, PARAM, 
+    EQUALS, COMMA, COLON, EOS, UNDEF, INVALID, 
     E, C, G, g, PI;
 }
 
@@ -33,36 +33,7 @@ enum Op {
         }
     }
 
-    /*
-     * 5  4  3  2  1
-     * ^  /  *  -  +
-     * 
-     * returns: 
-     *     -1 if leftOp < rightOp 
-     *     0 if leftOp = rightOp
-     *     1 if leftOp > rightOp
-     */
-    public int precedence(Op op) {
-        switch (op) {
-            case Hat: return 3;
-            case Times: return 2;
-            case Divide: return 2;
-            case Plus: return 1;
-            case Minus: return 1;
-            default: return 0;
-        }    
-    }
-
 }
-
-/*
- * 
- * If someone else depends on seeing a character, but you've already used it up, you've GOT TO PUSH IT BACK!!!
- * 
- * Distinguishes between functions
- * 1. Built-in
- * 2. Sum or Product(evaluated function, different from the built-in functions). 
- */
 
 class Tokenizer { 
 
@@ -204,6 +175,7 @@ class Tokenizer {
                 else if (c == ')') return Tok.RPAR;
                 else if (c == '.') state = State.DOUBLE;
                 else if (c == ',') return Tok.COMMA;
+                else if (c == ':') return Tok.COLON;
                 else if (c == '!') return Tok.FUNCTION;
                 else if (c == '=') return Tok.EQUALS;
                 else if (c == 0) { //DONE must know that we've reached the end.
@@ -264,6 +236,7 @@ class Tokenizer {
                     if (strVal.equals( "sum" )) return Tok.SUMMATION;
                     if (strVal.equals( "prod" )) return Tok.PRODUCT;
                     if (strVal.equals( "rex" )) return Tok.REX;
+                    if (strVal.equals( "param" )) return Tok.PARAM;
                     if (strVal.equals( "e" )) return Tok.E;
                     if (strVal.equals( "pi")) return Tok.PI;
                     if (strVal.equals( "c")) return Tok.C;
@@ -284,23 +257,10 @@ class Tokenizer {
 
 }
 
-/**
- * A node has either: 
- * 1. A left and a right child
- * 2. An argument Node but no left or right child (a function)
- * 3. No argument and no left or right child (a leaf node)
- * 
- * The method eval(argList) takes a HashMap that is passed in from outside
- * which maps variable names to values. This HashMap serves as the
- * evaluation context. This is much more efficient for evaluating
- * multivariable functions(such as the sums and products) than the
- * iterate-and-replace method, which requires creating, storing, and
- * looping through a new Node tree upon every iteration.
- * 
- */
 abstract class Node {
     Node left; 
     Node right;
+
     static final int NUM_SPACES = 2;
 
     abstract double eval(HashMap<String, Double> argList) throws Exception; 
@@ -310,6 +270,8 @@ abstract class Node {
 
     public double eval() { return 0; }
     public Op getOp() { return Op.Undef; }
+    public Vector<Node> getTermv() { return null; }
+    public Vector<Integer> getSignv() { return null; }
 
     public void print() { 
         this.print(0);
@@ -339,6 +301,9 @@ class TermList extends Node {
        this.signv = signv; 
     }
 
+    public Vector<Node> getTermv() { return termv; }
+    public Vector<Integer> getSignv() { return signv; }
+
     public void print(int depth) {
         Node.printSpaces(depth);
         System.out.println("termlist");
@@ -352,9 +317,17 @@ class TermList extends Node {
         }
     }
 
-    public void add(int sgn, Node term) {
-        signv.add(new Integer(sgn));
-        termv.add(term);
+    public void add(Node term, int sgn) {
+        if (term instanceof TermList) { //merge nested termlists
+            for (int i = 0; i < term.getTermv().size(); i++) {
+                termv.add(term.getTermv().get(i));
+                signv.add(term.getSignv().get(i) * sgn);
+            }
+        }
+        else { 
+            termv.add(term);
+            signv.add(new Integer(sgn));
+        }    
     }
 
     public double eval(HashMap<String, Double> argList) throws Exception {
@@ -370,11 +343,11 @@ class TermList extends Node {
     public Node pderiv(String var) throws Exception { 
         TermList result = new TermList();
         if (termv.size() == 0) {
-            result.add(1, new NumNode(1));
+            result.add(new NumNode(1), 1);
             return result;
         }
         for (int i = 0; i<termv.size(); i++) {
-            result.add(signv.get(i).intValue(), termv.get(i).pderiv(var));
+            result.add(termv.get(i).pderiv(var), signv.get(i).intValue());
         }
         return result;
     }
@@ -400,12 +373,39 @@ class TermList extends Node {
     public Node reduce() throws Exception {
         if (termv.size() == 0) throw new Exception("ERROR: INVALID_SYMANTICS");
         if (termv.size() == 1) { 
-            if (signv.get(0) == -1) return (new OpNode(Op.Times, new NumNode(-1), termv.get(0))).reduce(); 
+            if (signv.get(0) == -1) return (new OpNode(Op.Times, 
+                                                       new NumNode(-1), 
+                                                       termv.get(0))
+                                           ).reduce(); 
             else return termv.get(0).reduce();
         } 
-        //double constsum = 0;
-        System.out.println("returning this");
-        return this;
+
+        TermList list = new TermList();
+        double constsum = 0;
+
+        for (int i=0; i<termv.size(); i++) {
+            Node t = termv.get(i).reduce();
+            if (t instanceof NumNode) constsum += t.eval() * signv.get(i);
+            else list.add(t, signv.get(i));
+        }
+
+        if (constsum != 0) list.add(new NumNode(constsum), 1);
+    
+        else if (constsum == 0 && list.termv.size() == 0) 
+            list.add(new NumNode(constsum), 1);
+        
+        if (list.termv.size() == 1) { 
+
+            if (list.signv.get(0) == -1) 
+                return (new OpNode(Op.Times, 
+                                   new NumNode(-1), 
+                                   list.termv.get(0))
+                       ).reduce(); 
+
+            else return list.termv.get(0).reduce();
+
+        } 
+        return list;
     }
     
 }
@@ -526,11 +526,28 @@ class OpNode extends Node {
             }
         }
         else if (l instanceof NumNode && !(r instanceof NumNode)) {
+
+            if (l.eval() == 0 && op == Op.Times && r instanceof VarNode) 
+                return new NumNode(0);
+
+            if (l.eval() == 0 && op == Op.Plus) return r;
+
             if (l.eval() == 1 && op == Op.Times) return r;
+
         }
         else if (!(l instanceof NumNode) && r instanceof NumNode) {
+
+            if (l instanceof VarNode && op == Op.Times && r.eval() == 0) 
+                return new NumNode(0); 
+
+            if (op == Op.Plus && r.eval() == 0) return l;
+
             if (op == Op.Times && r.eval() == 1) return l;
-            else if (op == Op.Divide && r.eval() == 1) return l;
+
+            if (op == Op.Divide && r.eval() == 1) return l;
+
+            if (op == Op.Hat && r.eval() == 1) return l;
+
         }
         return new OpNode(op, l, r); //the OpNode is irreducible 
     }
@@ -703,8 +720,8 @@ class FuncNode extends Node {
                                                     new FuncNode(Func.Sqrt, argExpr)
                                                    )
                                         ); 
-            case Ln: return new OpNode(Op.Divide, 
-                                       new NumNode(1),
+            case Ln: return new OpNode(Op.Divide,
+                                       argExpr.pderiv(var),
                                        argExpr
                                       );
             case Abs: return null;    
@@ -720,10 +737,11 @@ class FuncNode extends Node {
     }
 
     public Node reduce() throws Exception {
-    /*    if (argExpr instanceof NumNode) { 
-            return new NumNode(argExpr.eval(argExpr.val));
-        } */
-        return this;
+        Node ae = argExpr.reduce();
+        if (ae instanceof NumNode) { 
+            return new NumNode(eval(ae.eval()));
+        } 
+        return new FuncNode(name, ae);
     }    
 
 }
@@ -753,13 +771,13 @@ class SumNode extends Node {
     }
 
     public double eval(HashMap<String, Double> argList) throws Exception {
-        Double prev = argList.get( var );
+        Double prev = argList.get(var);
         double accum = 0;
         for (int i=start; i<=limit; i++) {
-            argList.replace( var, new Double(i) );
+            argList.replace(var, new Double(i));
             accum += argExpr.eval(argList);
-            if (prev != null) argList.replace(var, prev );
         }
+        argList.replace(var, prev);
         return accum;
     }
 
@@ -775,7 +793,7 @@ class ProdNode extends Node {
     int start;    
     int limit;
     
-    ProdNode( Node argExpr, String var, int start, int limit ) {
+    ProdNode(Node argExpr, String var, int start, int limit) {
         this.argExpr = argExpr;
         this.var = var;
         this.start = start;
@@ -794,12 +812,12 @@ class ProdNode extends Node {
 
     public double eval(HashMap<String, Double> argList) throws Exception {
         double accum = 1;
-        Double prev = argList.get( var );
+        Double prev = argList.get(var);
         for (int i=start; i<=limit; i++) {
-            argList.replace( var, new Double(i) );
+            argList.replace(var, new Double(i));
             accum *= argExpr.eval(argList);
-            if (prev != null) argList.replace(var, prev);
         }
+        argList.replace(var, prev);
         return accum;
     }
 
@@ -933,7 +951,7 @@ class RexNode extends Node {
 
     public double eval(HashMap<String, Double> argList) throws Exception {
     // source : David Mumford's blog [http://www.dam.brown.edu/people/mumford/blog/2014/RiemannZeta.html]
-        double x = argExpr.eval( argList);
+        double x = argExpr.eval(argList);
         double result = 0.0;
         for (int i=0; i<limit; i++) {
             result += Math.cos( Math.log(x) * zeta_zeros[i] );
@@ -974,6 +992,7 @@ Factor ::=
      |  Summation '(' Expr ',' Variable ',' Number ',' Number ')'
      |  Product '(' Expr ',' Variable ',' Number ',' Number ')'
      |  Rex '(' Number ')'
+     |  Param '(' Number ':' Number ', ' Number ')'
 
 Number ::= 
         [0-9]\+
@@ -1026,27 +1045,6 @@ public class Parser {
         System.out.println("            PUSHBACK_REQUEST: " + s + ", " +  token);
         str.backToken = token;
     }
-   
-    /* 
-    public Node equ() throws Exception {
-    System.out.println("equ -->");
-        Node lhs = expr(); 
-        Tok t = str.nextToken();    
-        if (t == Tok.EQUALS) {
-        Node rhs = expr(); 
-            Tok t1 = str.nextToken();
-            if (t1 == Tok.EQUALS) {
-                throw new Exception("INVALID_EQUATION_SYNTAX");
-            }
-            pushBack("equ", t1);
-            return Node.reduceOpNode(new OpNode(Op.Minus, lhs, rhs));
-        }
-        else {
-            pushBack("equ", t);
-            return lhs; 
-        }
-    }
-    */
 
     public Node expr() throws Exception { 
     System.out.println("expr -->");
@@ -1070,7 +1068,7 @@ public class Parser {
             }
             Node term = term();
             if (term != null) {
-                termlist.add(s, term);
+                termlist.add(term, s);
             }
             else break; 
         }
@@ -1156,14 +1154,14 @@ System.out.println("      factor -->");
             if (str.nextToken() != Tok.COMMA) 
                 throw new Exception("INVALID_FUNCTION_SYNTAX: expecting comma");
             
-            Node start = factor();//number expected
+            Node start = power();//number expected
             if (!(start instanceof NumNode))
                 throw new Exception("INVALID_FUNCTION_SYNTAX: expecting start value, a number");
             
             if (str.nextToken() != Tok.COMMA) //number expected
                 throw new Exception("INVALID_FUNCTION_SYNTAX: expecting comma");
             
-            Node limit = factor();
+            Node limit = power();
             if (!(limit instanceof NumNode))
                 throw new Exception("INVALID_FUNCTION_SYNTAX: expecting limit value, a number");
             
@@ -1190,14 +1188,14 @@ System.out.println("      factor -->");
             if (str.nextToken() != Tok.COMMA) 
                 throw new Exception("INVALID_FUNCTION_SYNTAX: expecting comma");
             
-            Node start = factor();
+            Node start = power();
             if (!(start instanceof NumNode))
                 throw new Exception("INVALID_FUNCTION_SYNTAX: expecting start value, a number");
             
             if (str.nextToken() != Tok.COMMA) 
                 throw new Exception("INVALID_FUNCTION_SYNTAX: expecting comma");
             
-            Node limit = factor();
+            Node limit = power();
             if (!(limit instanceof NumNode))
                 throw new Exception("INVALID_FUNCTION_SYNTAX: expecting limit value, a number");
             
@@ -1216,9 +1214,32 @@ System.out.println("      factor -->");
             if (str.nextToken() != Tok.COMMA) 
                 throw new Exception("INVALID_FUNCTION_SYNTAX: expecting comma");
 
-            Node limit = factor(); //expecting number
+            Node limit = power(); //expecting number
             if (!(limit instanceof NumNode))
                 throw new Exception("INVALID_FUNCTION_SYNTAX: expecting limit value, a number");
+
+            if (str.nextToken() != Tok.RPAR) 
+                throw new Exception("INVALID_FUNCTION_SYNTAX: expecting right paren");
+
+            return new RexNode(argExpr, (int)limit.eval() );
+        }
+
+        if (token == Tok.PARAM) {
+            //expect: '(' Number ':' Number ',' Number ')'
+
+            if (str.nextToken() != Tok.LPAR) 
+                throw new Exception( "INVALID_FUNCTION_SYNTAX: expecting left paren");
+
+            Node argExpr = expr();
+            if (str.nextToken() != Tok.COMMA) 
+                throw new Exception("INVALID_FUNCTION_SYNTAX: expecting comma");
+
+            Node limit = power(); //expecting number
+            if (!(limit instanceof NumNode))
+                throw new Exception("INVALID_FUNCTION_SYNTAX: expecting limit value, a number");
+
+            if (str.nextToken() != Tok.RPAR) 
+                throw new Exception("INVALID_FUNCTION_SYNTAX: expecting right paren");
 
             return new RexNode(argExpr, (int)limit.eval() );
         }
@@ -1230,7 +1251,6 @@ System.out.println("      factor -->");
             throw new Exception("UNBALANCED_PARENTHESIS"); //no rightparens makes input invalid.
         }
         pushBack("f", token);
-        //nextToken() design saves need for pushing back EOS
         return null; 
     }    
 
@@ -1307,12 +1327,17 @@ System.out.println("      factor -->");
         tree.print();
     }
 
+    public static void testCodeGen(String[] args) {
+        try {
+            PrintWriter writer = new PrintWriter("Tmp.java");
+        }
+    }
+
     public static void main(String[] args) { 
-        // testTokenizer(args);
-        //testFunction(args);
+        //testTokenizer(args);
         //testOpCompareTo(args);
         //testToString(args);
-        testPrint(args);
+        //testPrint(args);
         //testDeriv(args);
         //testNewton(args);
     }
