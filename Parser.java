@@ -1,7 +1,12 @@
 import java.util.HashMap;
+import java.util.Map;
+import java.util.Map.Entry;
+import java.util.TreeMap;
 import java.util.Vector;
-import java.util.Set;
 import java.lang.Integer;
+import java.io.IOException;
+import java.io.StringWriter;
+import java.io.FileWriter;
 
 enum State { 
     INIT, WORD, INTEGER, DOUBLE, DONE;
@@ -266,10 +271,61 @@ abstract class Node {
     abstract double eval(HashMap<String, Double> argList) throws Exception; 
     abstract Node reduce() throws Exception; 
     abstract Node pderiv(String var) throws Exception;
+    abstract void codeGen(StringWriter str, CodeContext context);
     abstract void print(int depth);
+
+    public boolean equals(Node node) {
+        if (node instanceof TermList && this instanceof TermList) { //equal termlists march in lockstep
+            if (node.getTermv().size() != this.getTermv().size()) return false;
+            for (int i = 0; i < node.getTermv().size(); i++) {
+                // System.out.println("got here");
+                    if (node.getTermv().get(i).equals(this.getTermv().get(i)) == false || 
+                        node.getSignv().get(i).equals(this.getSignv().get(i)) == false) return false;
+            }
+            return true;
+        }
+        if (node instanceof OpNode && this instanceof OpNode) {
+            if (    this.left.equals(node.left) 
+                 && node.getOp().equals(this.getOp()) 
+                 && this.right.equals(node.right)) return true;
+            return false; 
+        }
+        if (node instanceof VarNode && this instanceof VarNode) {
+            if (node.getName().equals(this.getName())) return true;
+            return false; 
+        }
+        if (node instanceof NumNode && this instanceof NumNode) {
+            if (node.eval() == this.eval()) return true;
+            return false; 
+        }
+        if (node instanceof FuncNode && this instanceof FuncNode) {
+            if (node.getName().toString().equals(this.getName().toString()) &&
+                node.getArgExpr().equals(this.getArgExpr())) return true;
+            return false; 
+        }
+        if (    node instanceof SumNode && this instanceof SumNode 
+            || (node instanceof ProdNode && this instanceof ProdNode)) {
+            if (    node.getArgExpr().equals(this.getArgExpr())
+                 && node.getVar().equals(this.getVar())
+                 && node.getStart() == this.getStart()
+                 && node.getLimit() == this.getLimit() ) return true;
+            return false; 
+        }
+        if (node instanceof RexNode && this instanceof RexNode) {
+            if (node.getArgExpr().equals(this.getArgExpr())) return true;
+            return false;
+        }
+        return false;
+
+    }
 
     public double eval() { return 0; }
     public Op getOp() { return Op.Undef; }
+    public int getStart() { return Integer.MAX_VALUE; }
+    public int getLimit() { return Integer.MIN_VALUE; }
+    public String getName() { return null; }
+    public Node getArgExpr() { return null; }
+    public String getVar() { return null; }
     public Vector<Node> getTermv() { return null; }
     public Vector<Integer> getSignv() { return null; }
 
@@ -352,6 +408,17 @@ class TermList extends Node {
         return result;
     }
 
+    public void codeGen(StringWriter str, CodeContext context) {
+        for (int i = 0; i < termv.size(); i++)  {
+            if (signv.get(i).intValue() == -1) str.write(" - (");
+            else 
+                if (i == 0) str.write("(");
+                else str.write(" + (");
+            termv.get(i).codeGen(str, context);
+            str.write(")");
+        } 
+    }
+
     public String toString() {
         String result = "";
         boolean init = true;
@@ -429,6 +496,33 @@ class OpNode extends Node {
 
     public String toString() { 
         return left.toString() + op.toString() + "(" + right.toString() + ")";
+    }
+
+    public void codeGen(StringWriter str, CodeContext context) {
+        if (op == Op.Hat) {
+            str.write(String.valueOf(1));
+            if (right instanceof NumNode && right.eval() >= 0) {
+                for (int i = 1; i <= right.eval(); i++) {
+                    str.write(" * (");
+                    left.codeGen(str, context);
+                } 
+                str.write(")");
+            }
+            else {
+                str.write("Math.pow(");
+                left.codeGen(str, context);
+                str.write(", "); 
+                right.codeGen(str, context);
+                str.write(")"); 
+            }
+        }
+        else { 
+            str.write("("); 
+            left.codeGen(str, context);
+            str.write(") " + op.toString() + " (");
+            right.codeGen(str, context);
+            str.write(")");
+        }
     }
 
     public double eval(HashMap<String, Double> argList) throws Exception {         
@@ -570,7 +664,12 @@ class VarNode extends Node {
     }
 
     public String toString() { return name; }
+    public String getName() { return name; }
     
+    public void codeGen(StringWriter str, CodeContext context) {
+        str.write(name);
+    }
+
     public double eval(HashMap<String, Double> argList) throws Exception {
         Double val = argList.get(name); //gets the value corresponding to the variable.
         if (val == null) {  
@@ -607,6 +706,10 @@ class NumNode extends Node {
 
     public String toString() { return Double.toString(val); }
 
+    public void codeGen(StringWriter str, CodeContext context) {
+        str.write(String.valueOf(val));
+    }
+
     public double eval() { return val; }
     public double eval(HashMap<String, Double> argList) throws Exception { return val; }
 
@@ -632,6 +735,9 @@ class FuncNode extends Node {
         right = null;
     }   
 
+    public String getName() { return name.toString(); }
+    public Node getArgExpr() { return argExpr; }
+
     public void print(int depth) {
         Node.printSpaces(depth);
         System.out.println(name.toString()+"[");
@@ -643,6 +749,12 @@ class FuncNode extends Node {
 
     void printFuncSpaces() { 
         for (int i=0; i<name.toString().length(); i++) System.out.print(" ");
+    }
+
+    public void codeGen(StringWriter str, CodeContext context) {
+        str.write(name + "(");
+        argExpr.codeGen(str, context);
+        str.write(")");
     }
         
     public double eval(HashMap<String, Double> argList) throws Exception {
@@ -760,6 +872,11 @@ class SumNode extends Node {
         this.limit = limit;
     }
     
+    public String getVar() { return var; } 
+    public int getStart() { return start; } 
+    public int getLimit() { return limit; } 
+    public Node getArgExpr() { return argExpr; }
+
     public void print(int depth) {
         Node.printSpaces(depth);
         System.out.println("sum(" + var + ", start = " + start + ", limit = " + limit + ")");
@@ -768,6 +885,15 @@ class SumNode extends Node {
 
     public String toString() {
         return "sum("+ argExpr.toString() + ", " + var + ", " + start + ", " + limit + ")"; 
+    }
+
+    public void codeGen(StringWriter str, CodeContext context) {
+        if (context.nodev.contains(this) == false) {
+            context.print();
+            System.out.println(this.toString());
+            context.add(this);
+        }
+        str.write(context.namev.get(context.nodev.indexOf(this)) + "(x)"); 
     }
 
     public double eval(HashMap<String, Double> argList) throws Exception {
@@ -799,6 +925,11 @@ class ProdNode extends Node {
         this.start = start;
         this.limit = limit;
     }
+
+    public String getVar() { return var; } 
+    public int getStart() { return start; } 
+    public int getLimit() { return limit; } 
+    public Node getArgExpr() { return argExpr; }
     
     public void print(int depth) {
         Node.printSpaces(depth);
@@ -808,6 +939,11 @@ class ProdNode extends Node {
 
     public String toString() {
         return "prod("+ argExpr.toString() + ", " + var + ", " + start + ", " + limit + ")"; 
+    }
+
+    public void codeGen(StringWriter str, CodeContext context) {
+        if (!(context.nodev.contains(this))) context.add(this);
+        str.write(context.namev.get(context.nodev.indexOf(this)) + "(x)"); 
     }
 
     public double eval(HashMap<String, Double> argList) throws Exception {
@@ -937,6 +1073,9 @@ class RexNode extends Node {
         this.right = null;
     }
 
+    public int getLimit() { return limit; } 
+    public Node getArgExpr() { return argExpr; }
+
     public void print(int depth) {
         Node.printSpaces(depth); 
         System.out.println("rex(limit = " + limit);
@@ -945,6 +1084,11 @@ class RexNode extends Node {
 
     public String toString(String var) {
         return "rex(" + argExpr.toString() + ", " + limit + ")";
+    }
+
+    public void codeGen(StringWriter str, CodeContext context) {
+        if (context.nodev.contains(this) == false) context.add(this);
+        str.write(context.namev.get(context.nodev.indexOf(this)) + "(x)"); 
     }
 
     public Node pderiv(String var) throws Exception { return null; }
@@ -963,7 +1107,55 @@ class RexNode extends Node {
         return this;
     }
 
-    public int size() { return 1; }
+}
+
+class CodeContext {
+
+    int numSums;
+    int numProds;
+    int numRexes;
+
+    Vector<String> namev;
+    Vector<Node> nodev;
+
+    public CodeContext() {
+        namev = new Vector<String>();
+        nodev = new Vector<Node>();
+        numSums = 0;
+        numProds = 0;
+        numRexes = 0;
+    }
+
+    public void add(Node n) {
+        if (n instanceof SumNode) { 
+System.out.println("adding a SumNode");
+System.out.println();
+            numSums++;
+            namev.add("sum_"+numSums);
+            nodev.add(n);
+        }
+        if (n instanceof ProdNode) {
+System.out.println("adding a ProdNode");
+System.out.println();
+            numProds++;
+            namev.add("prod_"+numProds);
+            nodev.add(n);
+        }
+        if (n instanceof RexNode) {
+System.out.println("adding a RexNode");
+System.out.println();
+            numRexes++;
+            namev.add("rex_"+numRexes);
+            nodev.add(n);
+        }
+    }
+
+    public void print() {
+        for (int i = 0; i < namev.size(); i++) {
+            System.out.println("(" + namev.get(i) + ", " + nodev.get(i).toString() + ")");
+        }
+    }
+    
 }
 
 /*
@@ -1223,26 +1415,6 @@ System.out.println("      factor -->");
 
             return new RexNode(argExpr, (int)limit.eval() );
         }
-
-        if (token == Tok.PARAM) {
-            //expect: '(' Number ':' Number ',' Number ')'
-
-            if (str.nextToken() != Tok.LPAR) 
-                throw new Exception( "INVALID_FUNCTION_SYNTAX: expecting left paren");
-
-            Node argExpr = expr();
-            if (str.nextToken() != Tok.COMMA) 
-                throw new Exception("INVALID_FUNCTION_SYNTAX: expecting comma");
-
-            Node limit = power(); //expecting number
-            if (!(limit instanceof NumNode))
-                throw new Exception("INVALID_FUNCTION_SYNTAX: expecting limit value, a number");
-
-            if (str.nextToken() != Tok.RPAR) 
-                throw new Exception("INVALID_FUNCTION_SYNTAX: expecting right paren");
-
-            return new RexNode(argExpr, (int)limit.eval() );
-        }
         if (token == Tok.LPAR) {    //Parenthesis without a function 
             Node interior = expr();     //Expr inside '(' and ') 
             System.out.println("got here");
@@ -1328,9 +1500,142 @@ System.out.println("      factor -->");
     }
 
     public static void testCodeGen(String[] args) {
-        try {
-            PrintWriter writer = new PrintWriter("Tmp.java");
+        Parser P = new Parser(args[0]);
+
+        System.out.println();        
+        P.root.print();
+        System.out.println();        
+
+        StringWriter str = new StringWriter();
+        CodeContext context = new CodeContext();
+
+        str.write( "public class Tmp extends CompiledFunction {\n\n"
+
+                  +"    public Tmp() {\n"
+                  +"        super();\n"
+                  +"    }\n\n"
+
+                  +"    public double value(double... point) {\n"
+                  +"        double x = point[0];\n");
+        if (P.argList.containsKey("y")) {
+
+        str.write( "        double y = point[1];\n");
+
         }
+
+        str.write( "        return ");
+
+        P.root.codeGen(str, context);
+
+        str.write(";\n");
+        str.write("    }\n\n");
+        
+        while (context.nodev.size() != 0) { 
+
+System.out.println("got here"); 
+
+            Node node = context.nodev.remove(0);
+            String name = context.namev.remove(0);
+    
+                str.write( "    public double " + name + "(double... point) {\n"
+                          +"        double x = point[0];\n");
+
+                    if (P.argList.containsKey("y")) {
+                str.write( "        double y = point[1];\n");
+                    }
+    
+                str.write( "        double result = 0;\n");           
+
+            if (node instanceof RexNode) {
+                str.write( "        double v = "); 
+                          node.getArgExpr().codeGen(str, context);                  
+                str.write( ";\n"
+                          +"        for (int i = 0; i < " + node.getLimit() + "; i++) {\n"
+                          +"            result += Math.cos( Math.log(v) * zeta_zeros[i] );\n"
+                          +"        }\n"
+                          +"        return (1 - 2*result/Math.sqrt(v) - 1 / (v*v*v-v));\n"
+                          +"    }\n\n");
+            }
+
+            else {
+                str.write(
+                           "        for (int " + node.getVar() + " = " + node.getStart() + "; " 
+                                               + node.getVar() +" <= " + node.getLimit() + "; "
+                                               + node.getVar() + "++) {\n"
+                          +"            result += ("); 
+    
+                          node.getArgExpr().codeGen(str, context);
+
+                str.write( ");\n"
+                          +"        }\n"
+                          +"        return result;\n"
+                          +"    }\n\n"
+                         );
+            } 
+
+        }
+
+        str.write( "    public static void main(String[] args) {\n"
+                  +"        Tmp func = new Tmp();\n"
+                  +"        System.out.println(func.value(Double.parseDouble(args[0])));\n"
+                  +"    }\n\n"
+                  +"}"
+                 );
+
+        try { 
+            FileWriter fr = new FileWriter("Tmp.java"); 
+            fr.write(str.toString());
+            fr.close();
+        }
+        catch (IOException e) {
+            System.out.println(e.getMessage());
+            e.printStackTrace();
+        }
+        
+        /*
+
+        try {
+            String[] cmdArray = new String[6];
+            cmdArray[0] = "javac";
+            cmdArray[1] = "-d";
+            cmdArray[2] = "../bin";
+            cmdArray[3] ="-classpath";
+            cmdArray[4] ="../bin";
+            cmdArray[5] = "Tmp.java";
+            Process process = Runtime.getRuntime().exec(cmdArray, null);
+            process.waitFor();
+        }
+        catch (Exception e) {
+            e.printStackTrace();
+        }
+
+        try {
+            Class c = Class.forName("Tmp");
+            CompiledFunction tmpfunc = (CompiledFunction)c.newInstance(); 
+            System.out.println("tmpfunc.value(" + args[1] + ") = " + tmpfunc.value(Double.parseDouble(args[1])));
+        } catch (ClassNotFoundException e2) {
+            e2.printStackTrace();
+        } catch (IllegalAccessException e3) {
+            e3.printStackTrace();
+        } catch (InstantiationException e4) {
+            e4.printStackTrace();
+        } catch (SecurityException e5) {
+            e5.printStackTrace();
+        } 
+            
+        */
+        
+    }
+
+    public static void testEquals(String[] args) {
+        Parser P0 = new Parser(args[0]);
+        Parser P1 = new Parser(args[1]);
+        P0.root.print();
+        System.out.println();
+        P1.root.print();
+        System.out.println();
+        System.out.println(P0.root.equals(P1.root));
+        System.out.println(P1.root.equals(P0.root));
     }
 
     public static void main(String[] args) { 
@@ -1340,6 +1645,8 @@ System.out.println("      factor -->");
         //testPrint(args);
         //testDeriv(args);
         //testNewton(args);
+        testCodeGen(args);
+        //testEquals(args);
     }
 
 }

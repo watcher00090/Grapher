@@ -36,10 +36,6 @@ public class Function {
         }
     }
 
-    public void updateParam() {
-        argList.replace("param", argList.get("param") + 1);  
-    }
-
     public boolean isContinuous(double p) throws Exception {
         double v = 0;
         try { 
@@ -63,7 +59,7 @@ public class Function {
     }
 
     public boolean isBivariate() {
-        if (argList.containsKey("x") && argList.containsKey("y")) return true;
+        if (argList.containsKey("y")) return true;
         return false;
     }
 
