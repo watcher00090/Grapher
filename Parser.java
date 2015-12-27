@@ -1489,11 +1489,19 @@ System.out.println("      factor -->");
         }
     }
 
-    public static void buildCompiledFunction(Parser P, String classname) {
+    public static void compileFunction(Parser P) {
 
         StringWriter str = new StringWriter();
         CodeContext context = new CodeContext();
         boolean isBivariate = P.argList.containsKey("y") ? true : false;
+
+        String classname = getClassName(P);  
+
+System.out.println("classname="+classname);
+        
+        if ((new File("../bin/" + classname + ".class")).exists() == true) return; 
+
+System.out.println("compiling new file!");
 
         str.write( "public class " + classname + " extends Function {\n\n"
 
@@ -1577,11 +1585,11 @@ System.out.println("got here");
                  );
 
         try { 
-            File compilesrc = new File("./compilesrc");
+            File compilesrc = new File("compilesrc");
             compilesrc.mkdir();
             compilesrc.deleteOnExit();
 
-            File tmpfile = new File("./compilesrc/" + classname + ".java");
+            File tmpfile = new File("compilesrc/" + classname + ".java");
             tmpfile.deleteOnExit();
 
             FileWriter fr = new FileWriter(tmpfile); 
@@ -1597,17 +1605,26 @@ System.out.println("got here");
         }
        
         try {
-            String[] cmdArray = new String[4];
+            String[] cmdArray = new String[6];
             cmdArray[0] = "javac";
             cmdArray[1] = "-d";
-            cmdArray[2] = "./../bin";
-            cmdArray[3] = classname+".java";
+            cmdArray[2] = "../bin";
+            cmdArray[3] = "-cp";
+            cmdArray[4] = "../bin";
+            cmdArray[5] = "compilesrc/" + classname + ".java";
             Process process = Runtime.getRuntime().exec(cmdArray, null);
             process.waitFor();
         }
         catch (Exception e) {
             e.printStackTrace();
         }
+    }
+
+    public static String getClassName(Parser P) {
+        String exprStr = P.root.toString();
+        return   exprStr.hashCode() < 0 
+               ? "C_m" + String.valueOf(Math.abs(exprStr.hashCode()))
+               : "C_" + String.valueOf(exprStr.hashCode());
     }
 
     public static void testPderiv(String[] args) {
@@ -1632,20 +1649,19 @@ System.out.println("got here");
         System.out.println();        
         P.root.print();
         System.out.println();        
-        String classname = args[1];
 
-        Parser.buildCompiledFunction(P, args[1]);
+        Parser.compileFunction(P);
 
         try {
-            Class c = Class.forName(classname);
+            Class c = Class.forName(getClassName(P));
             Function tmpfunc = (Function) c.newInstance(); 
-            if (args.length == 4) {
-                System.out.println("func.value(" + args[2] + ", " + args[3] + ") = " + 
-                                    tmpfunc.value(Double.parseDouble(args[2]), 
-                                                  Double.parseDouble(args[3])));
+            if (args.length == 3) {
+                System.out.println("func.value(" + args[1] + ", " + args[2] + ") = " + 
+                                    tmpfunc.value(Double.parseDouble(args[1]), 
+                                                  Double.parseDouble(args[2])));
             }
             else { 
-                System.out.println("func.value(" + args[2] + ") = " + tmpfunc.value(Double.parseDouble(args[2])));
+                System.out.println("func.value(" + args[1] + ") = " + tmpfunc.value(Double.parseDouble(args[1])));
             }
         } catch (ClassNotFoundException e2) {
             e2.printStackTrace();
@@ -1689,9 +1705,9 @@ System.out.println("got here");
         //testPrint(args);
         //testDeriv(args);
         //testNewton(args);
-        //testCodeGen(args);
+        testCodeGen(args);
         //testEquals(args);
-            testHashCode(args);
+        //testHashCode(args);
     }
 
 }

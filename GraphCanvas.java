@@ -193,9 +193,9 @@ implements ComponentListener, WindowListener, KeyListener,
             if (state == ItemEvent.DESELECTED) graphCanvas.setCompile(false);
             //graphCanvas.updateFunction(graphCanvas.getFuncString());
         }
-        if (e.getSource().equals(derivcheckbox)) {
-            graphCanvas.render();
-        }
+        //if (e.getSource().equals(derivcheckbox)) {
+        //    graphCanvas.render();
+        //}
     }
 
     public void windowClosing(WindowEvent e) {
@@ -252,6 +252,7 @@ public class GraphCanvas extends Canvas {
     TextField ymaxbar = new TextField();
     TextField xincrementbar = new TextField();
     TextField yincrementbar = new TextField();
+    Label inputbarlabel = new Label();
     Label xminbarlabel = new Label();
     Label xmaxbarlabel = new Label();
     Label yminbarlabel = new Label();
@@ -324,15 +325,15 @@ public class GraphCanvas extends Canvas {
 
     static String helpmessage = 
         "Simple java 2D Grapher\n\n"+
-        "Can currently graph:"+
+        "Can currently graph:\n"+
         "   1) Functions of x\n"+
-        "   2) Summation and product expressions"+
-        "   3) The Zero level set of a function f(x, y).\n\n"+
+        "   2) Summation and product expressions\n"+
+        "   3) The zero level set of a function f(x, y).\n\n"+
 
         "For example,\n"+
         "   exp(-x^2/2)/sqrt(2*pi)\n"+
         "   ln(cos(.6535*x))\n"+
-        "   sum(1/n^x,n,1,20)"+
+        "   sum(1/n^x,n,1,20)\n"+
         "   x^2 - y^2 - 1 (interpreted as x^2 - y^2 - 1 = 0).\n\n"+
 
         "Syntax for sum and product expressions:\n"+
@@ -410,7 +411,7 @@ public class GraphCanvas extends Canvas {
         oc.gridy = 1;
         oc.weightx = 1.0;   //request any extra horizontal space
         oc.weighty = 0;
-        bottom.setPreferredSize(new Dimension(640,80));
+        bottom.setPreferredSize(new Dimension(1500,80));
         frame.add(bottom, oc);
 
         //bottom layout; 
@@ -419,22 +420,32 @@ public class GraphCanvas extends Canvas {
         bc.ipadx = 10;
         bc.ipady = 0;
 
+        inputbarlabel.setText("expr=");
         bc.gridx = 0;
+        bc.gridy = 0;
+        bc.fill = GridBagConstraints.NONE;
+        bc.weightx = 0.0; 
+        bc.insets = new Insets(0, 20, 0, 0);
+        bottom.add(inputbarlabel, bc);
+
+        //inputbar
+        bc.gridx = 1;
         bc.gridy = 0;
         bc.fill = GridBagConstraints.HORIZONTAL;
         bc.weightx = 1.0; //request any extra horiz space
+        bc.insets = new Insets(0, 0, 0, 0);
         bottom.add(inputbar, bc);
 
         Container tablecontainer = new Container();
         bc.gridx = 0;
         bc.gridy = 1;
-        bc.gridwidth = 6;
+        bc.gridwidth = 8;
         bc.gridheight = 2;
         bc.weightx = 0.0;
         bc.fill = GridBagConstraints.NONE; 
         bc.anchor = GridBagConstraints.WEST;
         bottom.add(tablecontainer, bc);
-        tablecontainer.setPreferredSize(new Dimension(590, 40));
+        tablecontainer.setPreferredSize(new Dimension(1000, 60));
 
         //bottom table layout
         GridBagConstraints ic = new GridBagConstraints();
@@ -482,6 +493,26 @@ public class GraphCanvas extends Canvas {
         ic.gridy = 0;
         tablecontainer.add(ticklabelscheckbox, ic);
 
+        compilecheckboxlabel.setText("compile:");
+        ic.gridx = 8;
+        ic.gridy = 0;
+        tablecontainer.add(compilecheckboxlabel, ic);
+        
+        ic.gridx = 9;
+        ic.gridy = 0;
+        tablecontainer.add(compilecheckbox, ic);
+
+/*
+        derivcheckboxlabel.setText("deriv:");
+        ic.gridx = 10;
+        ic.gridy = 0;
+        tablecontainer.add(derivcheckboxlabel, ic);
+        
+        ic.gridx = 11;
+        ic.gridy = 0;
+        tablecontainer.add(derivcheckbox, ic);
+
+*/
         yminbarlabel.setText("ymin=");
         ic.gridx = 0;
         ic.gridy = 1;
@@ -515,32 +546,11 @@ public class GraphCanvas extends Canvas {
         yincrementbar.setMinimumSize(new Dimension(100,20));
 
         helpbutton.setLabel("help");
-        ic.gridx = 5;
-        ic.gridy = 1;
-        ic.gridwidth = 3;
-        ic.insets = new Insets(0, 30, 0, 0);
-        tablecontainer.add(helpbutton, ic);
-        helpbutton.setPreferredSize(new Dimension(50,20));
-        helpbutton.setMinimumSize(new Dimension(50,20));
-        ic.gridwidth = 1;
-
-        compilecheckboxlabel.setText("compile:");
         ic.gridx = 6;
         ic.gridy = 1;
-        tablecontainer.add(compilecheckboxlabel, ic);
-        
-        ic.gridx = 7;
-        ic.gridy = 1;
-        tablecontainer.add(compilecheckbox, ic);
-
-        derivcheckboxlabel.setText("deriv:");
-        ic.gridx = 8;
-        ic.gridy = 1;
-        tablecontainer.add(derivcheckboxlabel, ic);
-        
-        ic.gridx = 9;
-        ic.gridy = 1;
-        tablecontainer.add(derivcheckbox, ic);
+        ic.gridwidth = 3;
+        tablecontainer.add(helpbutton, ic);
+        ic.gridwidth = 1;
 
         helptext.insert(helpmessage, 0);
         helpdialog.add(helptext);
@@ -602,10 +612,9 @@ System.out.println("compile = " + compile);
         else { 
             Parser P = new Parser(funcString);
             if (compile) {
-                Parser.buildCompiledFunction(P, "Tmp_"+compiledfunctionnumber); 
+                Parser.compileFunction(P); 
                 try {
-                    Class c = Class.forName("Tmp_"+compiledfunctionnumber);
-                   // System.out.println(
+                    Class c = Class.forName(Parser.getClassName(P));
                     func = (Function) c.newInstance(); 
                     System.out.println("updated func");
                     compiledfunctionnumber++;
@@ -797,15 +806,15 @@ System.out.println("compile = " + compile);
     public void paintBivariateFunc(Graphics g) {
         g.setColor(Color.BLACK);
         double tmp = 0;
-        double xincr = 25*xrange/NUM_POINTS;
-        double yincr = 25*yrange/NUM_POINTS;
+        double xincr = 10*xrange/NUM_POINTS;
+        double yincr = 10*yrange/NUM_POINTS;
         try {
             for (double x = xmin; x <= xmax; x += xincr) {
                 for (double y = ymin; y <= ymax; y += yincr) {
                     double val = func.value(x, y);
                     if (val * tmp < 0 || val == 0) {
-                        g.fillOval(mathematicalXToRenderX(x), 
-                                   mathematicalYToRenderY(y), 2, 2);
+                        g.fillRect(mathematicalXToRenderX(x), 
+                                   mathematicalYToRenderY(y), 1, 1);
                     }
                     tmp = val;
                 }
@@ -815,8 +824,8 @@ System.out.println("compile = " + compile);
                 for (double x = xmin; x <= xmax; x += xincr) {
                     double val = func.value(x, y);
                     if (val * tmp < 0 || val == 0)  {
-                        g.fillOval(mathematicalXToRenderX(x), 
-                                   mathematicalYToRenderY(y), 2, 2);
+                        g.fillRect(mathematicalXToRenderX(x), 
+                                   mathematicalYToRenderY(y), 1, 1);
                     }
                     tmp = val;
                 }
