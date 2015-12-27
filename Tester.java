@@ -222,6 +222,7 @@ public class Tester {
         //testIsContinuous(args);
         //testNonCompiledFunction(args);
         //testNewton(args);
+        //testGraphCanvas(args);
     }
 
 }

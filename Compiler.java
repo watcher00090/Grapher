@@ -57,7 +57,7 @@ System.out.println("got here");
                 str.write( "    public double " + name + "() {\n");
     
                 int startbit = node instanceof ProdNode? 1 : 0;
-                str.write( "        double result = " + startbit + ";\n");           
+                str.write( "        double result = " + startbit + ";\n");
 
             if (node instanceof RexNode) {
                 str.write( "        double v = "); 
@@ -73,6 +73,7 @@ System.out.println("got here");
             }
 
             else {
+                str.write( "        double prev = " + node.getVar() + ";\n");
                 char opbit = node instanceof SumNode ? '+' : '*';
                 str.write(
                            "        for (" + node.getVar() + " = " + node.getStart() + "; " 
@@ -84,6 +85,7 @@ System.out.println("got here");
 
                 str.write( ");\n"
                           +"        }\n"
+                          +"        "+node.getVar() + " = prev;\n"
                           +"        return result;\n"
                           +"    }\n\n"
                          );
