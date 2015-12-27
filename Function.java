@@ -50,6 +50,7 @@ public abstract class Function {
         catch (Exception e) { e.printStackTrace(); } 
     }
 
+     // source : Andrew Odlyzko [http://www.dtc.umn.edu/~Odlyzko/zeta_tables/index.html]
     public static final double[] zeta_zeros = {
         14.134725142,  21.022039639,  25.010857580,  30.424876126,  32.935061588,  //  10 
         37.586178159,  40.918719012,  43.327073281,  48.005150881,  49.773832478,

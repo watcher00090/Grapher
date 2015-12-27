@@ -612,9 +612,9 @@ System.out.println("compile = " + compile);
         else { 
             Parser P = new Parser(funcString);
             if (compile) {
-                Parser.compileFunction(P); 
+                Compiler.compileFunction(P); 
                 try {
-                    Class c = Class.forName(Parser.getClassName(P));
+                    Class c = Class.forName(Compiler.getClassName(P));
                     func = (Function) c.newInstance(); 
                     System.out.println("updated func");
                     compiledfunctionnumber++;
