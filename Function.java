@@ -1,40 +1,10 @@
-import java.util.HashMap;
-import java.util.ArrayList;
-import java.awt.Point;
+public abstract class Function {
 
-public class Function {
-
-    Node tree;
-    HashMap<String, Double> argList;
     static double CONTINUITY_INCREMENT = .00000001;
     static double CONTINUITY_MARGIN_OF_ERROR = .1;
 
-    public Function(Node tree, HashMap<String, Double> argList) {
-        this.tree = tree;
-        this.argList = argList;
-    }
-
-    public void print() {
-        tree.print();
-    }
-
-    public double value(double... point) throws Exception {
-        if (point.length == 1) {
-            argList.replace("x", point[0]);   
-        }
-        else if (point.length == 2) {
-            argList.replace("x", point[0]); 
-            argList.replace("y", point[1]);
-        }
-        else if (point.length > 2) throw new Exception("TOO_MANY_ARGUMENTS");
-        return tree.eval(argList);
-    }
-    
-    public void printArgList() {
-        for (String var : argList.keySet()) {
-            System.out.println("(" + var + ", " + argList.get(var).doubleValue() + ")");
-        }
-    }
+    public abstract double value(double... point) throws Exception;
+    public abstract boolean isBivariate();
 
     public boolean isContinuous(double p) throws Exception {
         double v = 0;
@@ -58,72 +28,18 @@ public class Function {
         return true;
     }
 
-    public boolean isBivariate() {
-        if (argList.containsKey("y")) return true;
-        return false;
-    }
-
-    public static double newton(Node func, Node deriv, String var, 
-                                HashMap<String, Double> argList, double x0, double threshold) {
-        try {
-            while ( Math.abs(func.eval(argList)) > threshold && deriv.eval(argList) > threshold) { 
-                argList.replace(var, x0);
-                x0 = x0 - func.eval(argList) / deriv.eval(argList);
-            }
-            return x0;
+    public double factorial(double d) {
+        if (d == 0) return 1;
+        double result = 1;
+        for (double i = 1; i <= d; i++) {
+            result *= i;
         }
-        catch(Exception e) { 
-            System.out.println(e.toString()+"at x0="+x0);
-            return x0; 
-        }
-    }
-
-    public static void testNewton(String[] args) {
-        Parser P = new Parser(args[0]);
-        Node func = P.root;
-        try { 
-            Node deriv = P.root.pderiv("x");
-            HashMap<String, Double> argList = P.argList;
-            double x0 = Double.parseDouble(args[1]);
-            double threshold = Double.parseDouble(args[2]);
-            System.out.println("newton(func, deriv, "+x0+", "+threshold+") = "+
-                                newton(func, deriv, "x", argList, x0, threshold));
-        }
-        catch (Exception e) { 
-            e.printStackTrace();
-        }
-    }
-
-    public static void testFunction(String[] args) {
-        Parser P = new Parser(args[0]);
-        Function func = new Function(P.root, P.argList);
-        System.out.println();
-        func.print();
-        System.out.println();
-        System.out.println("Bi-Variate: " + func.isBivariate());
-        System.out.println();
-        if (func.isBivariate()) {
-            try { 
-                double x = Double.parseDouble(args[1]);
-                double y = Double.parseDouble(args[2]);
-                System.out.println("f(" + x + "," + y + ") = " + 
-                    func.value(x, y)
-                                  ); 
-            }
-            catch (Exception e) { e.printStackTrace(); }
-        }
-        else { 
-            try { 
-                System.out.println("f(" + args[1] + ") = " + func.value(Double.parseDouble(args[1])));    
-            }
-            catch (Exception e) { e.printStackTrace(); }
-        }
-        System.out.println();
+        return result;
     }
 
     public static void testIsContinuous(String[] args) {
         Parser P = new Parser(args[0]);
-        Function func = new Function(P.root, P.argList);
+        NonCompiledFunction func = new NonCompiledFunction(P.root, P.argList);
         func.print();
         Double val = Double.parseDouble(args[1]);
         try { 
@@ -134,27 +50,67 @@ public class Function {
         catch (Exception e) { e.printStackTrace(); } 
     }
 
-    public static void main(String[] args) {
-        testFunction(args);
-        //testIsContinuous(args);
-        //testNewton(args);
-    }
+    public static final double[] zeta_zeros = {
+        14.134725142,  21.022039639,  25.010857580,  30.424876126,  32.935061588,  //  10 
+        37.586178159,  40.918719012,  43.327073281,  48.005150881,  49.773832478,
+        52.970321478,  56.446247697,  59.347044003,  60.831778525,  65.112544048,  //  20
+        67.079810529,  69.546401711,  72.067157674,  75.704690699,  77.144840069,
+        79.337375020,  82.910380854,  84.735492981,  87.425274613,  88.809111208,  //  30
+        92.491899271,  94.651344041,  95.870634228,  98.831194218, 101.317851006,
+        103.725538040, 105.446623052, 107.168611184, 111.029535543, 111.874659177,  //  40
+        114.320220915, 116.226680321, 118.790782866, 121.370125002, 122.946829294,
+        124.256818554, 127.516683880, 129.578704200, 131.087688531, 133.497737203,  //  50
+        134.756509753, 138.116042055, 139.736208952, 141.123707404, 143.111845808,
+        146.000982487, 147.422765343, 150.053520421, 150.925257612, 153.024693811,  //  60
+        156.112909294, 157.597591818, 158.849988171, 161.188964138, 163.030709687,
+        165.537069188, 167.184439978, 169.094515416, 169.911976479, 173.411536520,  //  70
+        174.754191523, 176.441434298, 178.377407776, 179.916484020, 182.207078484,
+        184.874467848, 185.598783678, 187.228922584, 189.416158656, 192.026656361,  //  80
+        193.079726604, 195.265396680, 196.876481841, 198.015309676, 201.264751944,
+        202.493594514, 204.189671803, 205.394697202, 207.906258888, 209.576509717,  //  90
+        211.690862595, 213.347919360, 214.547044783, 216.169538508, 219.067596349,
+        220.714918839, 221.430705555, 224.007000255, 224.983324670, 227.421444280,  // 100
+        229.337413306, 231.250188700, 231.987235253, 233.693404179, 236.524229666,
+        237.769820481, 239.555477573, 241.049157796, 242.823271934, 244.070898497,  // 110
+        247.136990075, 248.101990060, 249.573689645, 251.014947795, 253.069986748,
+        255.306256455, 256.380713694, 258.610439492, 259.874406990, 260.805084505,  // 120
+        263.573893905, 265.557851839, 266.614973782, 267.921915083, 269.970449024,
+        271.494055642, 273.459609188, 275.587492649, 276.452049503, 278.250743530,  // 130
+        279.229250928, 282.465114765, 283.211185733, 284.835963981, 286.667445363,
+        287.911920501, 289.579854929, 291.846291329, 293.558434139, 294.965369619,  // 140
+        295.573254879, 297.979277062, 299.840326054, 301.649325462, 302.696749590,
+        304.864371341, 305.728912602, 307.219496128, 310.109463147, 311.165141530,  // 150
+        312.427801181, 313.985285731, 315.475616089, 317.734805942, 318.853104256,
+        321.160134309, 322.144558672, 323.466969558, 324.862866052, 327.443901262,  // 160
+        329.033071680, 329.953239728, 331.474467583, 333.645378525, 334.211354833,
+        336.841850428, 338.339992851, 339.858216725, 341.042261111, 342.054877510,  // 170
+        344.661702940, 346.347870566, 347.272677584, 349.316260871, 350.408419349,
+        351.878649025, 353.488900489, 356.017574977, 357.151302252, 357.952685102,  // 180
+        359.743754953, 361.289361696, 363.331330579, 364.736024114, 366.212710288,
+        367.993575482, 368.968438096, 370.050919212, 373.061928372, 373.864873911,  // 190
+        375.825912767, 376.324092231, 378.436680250, 379.872975347, 381.484468617,
+        383.443529450, 384.956116815, 385.861300846, 387.222890222, 388.846128354,  // 200
+        391.456083564, 392.245083340, 393.427743844, 395.582870011, 396.381854223,
+        397.918736210, 399.985119876, 401.839228601, 402.861917764, 404.236441800,  // 210
+        405.134387460, 407.581460387, 408.947245502, 410.513869193, 411.972267804,
+        413.262736070, 415.018809755, 415.455214996, 418.387705790, 419.861364818,  // 220
+        420.643827625, 422.076710059, 423.716579627, 425.069882494, 427.208825084,
+        428.127914077, 430.328745431, 431.301306931, 432.138641735, 433.889218481,  // 230
+        436.161006433, 437.581698168, 438.621738656, 439.918442214, 441.683199201,
+        442.904546303, 444.319336278, 446.860622696, 447.441704194, 449.148545685,  // 240
+        450.126945780, 451.403308445, 453.986737807, 454.974683769, 456.328426689,
+        457.903893064, 459.513415281, 460.087944422, 462.065367275, 464.057286911,  // 250
+        465.671539211, 466.570286931, 467.439046210, 469.536004559, 470.773655478,
+        472.799174662, 473.835232345, 475.600339369, 476.769015237, 478.075263767,  // 260
+        478.942181535, 481.830339376, 482.834782791, 483.851427212, 485.539148129,
+        486.528718262, 488.380567090, 489.661761578, 491.398821594, 493.314441582,  // 270
+        493.957997805, 495.358828822, 496.429696216, 498.580782430, 500.309084942,
+        501.604446965, 502.276270327, 504.499773313, 505.415231742, 506.464152710,  // 280
+        508.800700336, 510.264227944, 511.562289700, 512.623144531, 513.668985555,
+        515.435057167, 517.589668572, 518.234223148, 520.106310412, 521.525193449,  // 290
+        522.456696178, 523.960530892, 525.077385687, 527.903641601, 528.406213852,
+        529.806226319, 530.866917884, 532.688183028, 533.779630754, 535.664314076,  // 300
+        537.069759083, 538.428526176, 540.213166376, 540.631390247, 541.847437121
+    };
     
-}
-
-//f(x, y) = 0;
-class ZeroLevelSet {
-
-    Function func;
-    HashMap<String, Double> argList;
-    
-    public ZeroLevelSet(Function func, HashMap<String, Double> argList) {
-        this.func = func;
-        this.argList = argList;
-    }
-
-    public double funcValue(double... point) throws Exception {
-        return func.value(point); 
-    }
-
 }

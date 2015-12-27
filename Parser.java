@@ -6,6 +6,7 @@ import java.util.Vector;
 import java.lang.Integer;
 import java.io.IOException;
 import java.io.StringWriter;
+import java.io.File;
 import java.io.FileWriter;
 
 enum State { 
@@ -263,6 +264,7 @@ class Tokenizer {
 }
 
 abstract class Node {
+
     Node left; 
     Node right;
 
@@ -415,7 +417,7 @@ class TermList extends Node {
                 if (i == 0) str.write("(");
                 else str.write(" + (");
             termv.get(i).codeGen(str, context);
-            str.write(")");
+                str.write(")");
         } 
     }
 
@@ -500,13 +502,17 @@ class OpNode extends Node {
 
     public void codeGen(StringWriter str, CodeContext context) {
         if (op == Op.Hat) {
-            str.write(String.valueOf(1));
-            if (right instanceof NumNode && right.eval() >= 0) {
+            if (   right instanceof NumNode 
+                && right.eval() >= 0
+                && Math.floor(right.eval()) == right.eval() ) {
+ 
+                str.write(String.valueOf(1));
                 for (int i = 1; i <= right.eval(); i++) {
                     str.write(" * (");
                     left.codeGen(str, context);
+                    str.write(")");
                 } 
-                str.write(")");
+
             }
             else {
                 str.write("Math.pow(");
@@ -752,7 +758,8 @@ class FuncNode extends Node {
     }
 
     public void codeGen(StringWriter str, CodeContext context) {
-        str.write(name + "(");
+        if (name == Func.Factorial) str.write(name.toString().toLowerCase() + "(");
+        else str.write("Math." + name.toString().toLowerCase() + "(");
         argExpr.codeGen(str, context);
         str.write(")");
     }
@@ -893,7 +900,7 @@ class SumNode extends Node {
             System.out.println(this.toString());
             context.add(this);
         }
-        str.write(context.namev.get(context.nodev.indexOf(this)) + "(x)"); 
+        str.write(context.namev.get(context.nodev.indexOf(this)) + "(point)"); 
     }
 
     public double eval(HashMap<String, Double> argList) throws Exception {
@@ -943,7 +950,7 @@ class ProdNode extends Node {
 
     public void codeGen(StringWriter str, CodeContext context) {
         if (!(context.nodev.contains(this))) context.add(this);
-        str.write(context.namev.get(context.nodev.indexOf(this)) + "(x)"); 
+        str.write(context.namev.get(context.nodev.indexOf(this)) + "(point)"); 
     }
 
     public double eval(HashMap<String, Double> argList) throws Exception {
@@ -1078,7 +1085,7 @@ class RexNode extends Node {
 
     public void print(int depth) {
         Node.printSpaces(depth); 
-        System.out.println("rex(limit = " + limit);
+        System.out.println("rex(limit = " + limit + ")");
         argExpr.print(depth+1);
     }
 
@@ -1088,7 +1095,7 @@ class RexNode extends Node {
 
     public void codeGen(StringWriter str, CodeContext context) {
         if (context.nodev.contains(this) == false) context.add(this);
-        str.write(context.namev.get(context.nodev.indexOf(this)) + "(x)"); 
+        str.write(context.namev.get(context.nodev.indexOf(this)) + "(point)"); 
     }
 
     public Node pderiv(String var) throws Exception { return null; }
@@ -1394,7 +1401,7 @@ System.out.println("      factor -->");
             if (str.nextToken() != Tok.RPAR) 
                 throw new Exception("INVALID_FUNCTION_SYNTAX: expecting right paren");
             
-            return (new ProdNode(argExpr,var.toString(), (int) start.eval(), (int) limit.eval())).reduce();
+            return (new ProdNode(argExpr, var.toString(), (int) start.eval(), (int) limit.eval())).reduce();
         }
         if (token == Tok.REX) {
             //expect: '(' Number ')'
@@ -1482,37 +1489,20 @@ System.out.println("      factor -->");
         }
     }
 
-
-    public static void testPderiv(String[] args) {
-        
-    }
-
-    public static void testToString(String[] args) {
-        Parser P = new Parser(args[0]);
-        Node tree = P.root;
-        System.out.println(tree.toString());
-    }
-
-    public static void testPrint(String[] args) {
-        Parser P = new Parser(args[0]);
-        Node tree = P.root;
-        tree.print();
-    }
-
-    public static void testCodeGen(String[] args) {
-        Parser P = new Parser(args[0]);
-
-        System.out.println();        
-        P.root.print();
-        System.out.println();        
+    public static void buildCompiledFunction(Parser P, String classname) {
 
         StringWriter str = new StringWriter();
         CodeContext context = new CodeContext();
+        boolean isBivariate = P.argList.containsKey("y") ? true : false;
 
-        str.write( "public class Tmp extends CompiledFunction {\n\n"
+        str.write( "public class " + classname + " extends Function {\n\n"
 
-                  +"    public Tmp() {\n"
+                  +"    public " + classname + "() {\n"
                   +"        super();\n"
+                  +"    }\n\n"
+                    
+                  +"    public boolean isBivariate() {\n"
+                  +"        return " + isBivariate + ";\n"
                   +"    }\n\n"
 
                   +"    public double value(double... point) {\n"
@@ -1544,7 +1534,8 @@ System.out.println("got here");
                 str.write( "        double y = point[1];\n");
                     }
     
-                str.write( "        double result = 0;\n");           
+                int startbit = node instanceof ProdNode? 1 : 0;
+                str.write( "        double result = " + startbit + ";\n");           
 
             if (node instanceof RexNode) {
                 str.write( "        double v = "); 
@@ -1558,11 +1549,12 @@ System.out.println("got here");
             }
 
             else {
+                char opbit = node instanceof SumNode ? '+' : '*';
                 str.write(
                            "        for (int " + node.getVar() + " = " + node.getStart() + "; " 
                                                + node.getVar() +" <= " + node.getLimit() + "; "
                                                + node.getVar() + "++) {\n"
-                          +"            result += ("); 
+                          +"            result " + opbit + "= ("); 
     
                           node.getArgExpr().codeGen(str, context);
 
@@ -1576,43 +1568,85 @@ System.out.println("got here");
         }
 
         str.write( "    public static void main(String[] args) {\n"
-                  +"        Tmp func = new Tmp();\n"
-                  +"        System.out.println(func.value(Double.parseDouble(args[0])));\n"
+                  +"        " + classname + " func = new " + classname + "();\n"
+                  +"        if (args.length == 1) System.out.println(func.value(Double.parseDouble(args[0])));\n"
+                  +"        if (args.length == 2) System.out.println(func.value(Double.parseDouble(args[0]),\n" 
+                  +"                                                            Double.parseDouble(args[1])));\n"
                   +"    }\n\n"
                   +"}"
                  );
 
         try { 
-            FileWriter fr = new FileWriter("Tmp.java"); 
+            File compilesrc = new File("./compilesrc");
+            compilesrc.mkdir();
+            compilesrc.deleteOnExit();
+
+            File tmpfile = new File("./compilesrc/" + classname + ".java");
+            tmpfile.deleteOnExit();
+
+            FileWriter fr = new FileWriter(tmpfile); 
             fr.write(str.toString());
             fr.close();
         }
-        catch (IOException e) {
-            System.out.println(e.getMessage());
-            e.printStackTrace();
+        catch (NullPointerException e1) {
+            e1.printStackTrace();
         }
-        
-        /*
-
+        catch (IOException e2) {
+            System.out.println(e2.getMessage());
+            e2.printStackTrace();
+        }
+       
         try {
-            String[] cmdArray = new String[6];
+            String[] cmdArray = new String[4];
             cmdArray[0] = "javac";
             cmdArray[1] = "-d";
-            cmdArray[2] = "../bin";
-            cmdArray[3] ="-classpath";
-            cmdArray[4] ="../bin";
-            cmdArray[5] = "Tmp.java";
+            cmdArray[2] = "./../bin";
+            cmdArray[3] = classname+".java";
             Process process = Runtime.getRuntime().exec(cmdArray, null);
             process.waitFor();
         }
         catch (Exception e) {
             e.printStackTrace();
         }
+    }
+
+    public static void testPderiv(String[] args) {
+        
+    }
+
+    public static void testToString(String[] args) {
+        Parser P = new Parser(args[0]);
+        Node tree = P.root;
+        System.out.println(tree.toString());
+    }
+
+    public static void testPrint(String[] args) {
+        Parser P = new Parser(args[0]);
+        Node tree = P.root;
+        tree.print();
+    }
+
+    public static void testCodeGen(String[] args) {
+        Parser P = new Parser(args[0]);
+
+        System.out.println();        
+        P.root.print();
+        System.out.println();        
+        String classname = args[1];
+
+        Parser.buildCompiledFunction(P, args[1]);
 
         try {
-            Class c = Class.forName("Tmp");
-            CompiledFunction tmpfunc = (CompiledFunction)c.newInstance(); 
-            System.out.println("tmpfunc.value(" + args[1] + ") = " + tmpfunc.value(Double.parseDouble(args[1])));
+            Class c = Class.forName(classname);
+            Function tmpfunc = (Function) c.newInstance(); 
+            if (args.length == 4) {
+                System.out.println("func.value(" + args[2] + ", " + args[3] + ") = " + 
+                                    tmpfunc.value(Double.parseDouble(args[2]), 
+                                                  Double.parseDouble(args[3])));
+            }
+            else { 
+                System.out.println("func.value(" + args[2] + ") = " + tmpfunc.value(Double.parseDouble(args[2])));
+            }
         } catch (ClassNotFoundException e2) {
             e2.printStackTrace();
         } catch (IllegalAccessException e3) {
@@ -1621,10 +1655,10 @@ System.out.println("got here");
             e4.printStackTrace();
         } catch (SecurityException e5) {
             e5.printStackTrace();
+        } catch (Exception e6) {
+            e6.printStackTrace();
         } 
-            
-        */
-        
+
     }
 
     public static void testEquals(String[] args) {
@@ -1638,6 +1672,16 @@ System.out.println("got here");
         System.out.println(P1.root.equals(P0.root));
     }
 
+    public static void testHashCode(String[] args) {
+        Parser P0 = new Parser(args[0]);
+        Parser P1 = new Parser(args[1]);
+        System.out.println(P0.root.toString());
+        System.out.println(P1.root.toString());
+        System.out.println();        
+        System.out.println(P0.root.toString().hashCode());
+        System.out.println(P1.root.toString().hashCode());
+    }
+
     public static void main(String[] args) { 
         //testTokenizer(args);
         //testOpCompareTo(args);
@@ -1645,8 +1689,9 @@ System.out.println("got here");
         //testPrint(args);
         //testDeriv(args);
         //testNewton(args);
-        testCodeGen(args);
+        //testCodeGen(args);
         //testEquals(args);
+            testHashCode(args);
     }
 
 }
