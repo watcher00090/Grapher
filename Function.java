@@ -37,19 +37,6 @@ public abstract class Function {
         return result;
     }
 
-    public static void testIsContinuous(String[] args) {
-        Parser P = new Parser(args[0]);
-        NonCompiledFunction func = new NonCompiledFunction(P.root, P.argList);
-        func.print();
-        Double val = Double.parseDouble(args[1]);
-        try { 
-            System.out.println("isContinuous(" + val +
-                               ") = " + func.isContinuous(val)
-                              ); 
-        }
-        catch (Exception e) { e.printStackTrace(); } 
-    }
-
      // source : Andrew Odlyzko [http://www.dtc.umn.edu/~Odlyzko/zeta_tables/index.html]
     public static final double[] zeta_zeros = {
         14.134725142,  21.022039639,  25.010857580,  30.424876126,  32.935061588,  //  10 

@@ -15,11 +15,8 @@ import java.awt.event.WindowEvent;
 import java.awt.event.WindowListener;
 import java.awt.event.ActionListener;
 import java.awt.event.ActionEvent;
-import java.awt.Point;
 import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.Scanner;
-import java.io.File;
 
 class RenderController
 implements ComponentListener, WindowListener, KeyListener, 
@@ -868,24 +865,6 @@ System.out.println("compile = " + compile);
 
     public static void main(String[] args) {
         GraphCanvas g = new GraphCanvas();
-        Scanner sc = new Scanner(System.in);
-        while (sc.hasNextLine()) {
-            System.out.println("> ");
-            String text = sc.nextLine();
-            g.inputbar.setText(text);
-            g.G.keyPressed( new KeyEvent(g,
-                            KeyEvent.KEY_PRESSED,
-                            System.currentTimeMillis(),
-                            0,
-                            KeyEvent.VK_ENTER,
-                            '\n' ));
-            try { 
-                Thread.sleep(500);
-            }
-            catch (InterruptedException e) {
-                e.printStackTrace();
-            }
-         }
      }
 
 }

@@ -103,10 +103,10 @@ System.out.println("got here");
         try { 
             File compilesrc = new File("compilesrc");
             compilesrc.mkdir();
-            compilesrc.deleteOnExit();
+            //compilesrc.deleteOnExit();
 
             File tmpfile = new File("compilesrc/" + classname + ".java");
-            tmpfile.deleteOnExit();
+            //tmpfile.deleteOnExit();
 
             FileWriter fr = new FileWriter(tmpfile); 
             fr.write(str.toString());

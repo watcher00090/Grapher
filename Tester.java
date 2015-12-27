@@ -1,8 +1,8 @@
-public class Tester { 
+import java.util.HashMap;
+import java.util.Scanner;
+import java.awt.event.KeyEvent;
 
-    public static void testPderiv(String[] args) {
-        
-    }
+public class Tester { 
 
     public static void testToString(String[] args) {
         Parser P = new Parser(args[0]);
@@ -14,6 +14,10 @@ public class Tester {
         Parser P = new Parser(args[0]);
         Node tree = P.root;
         tree.print();
+    }
+
+    public static void testPderiv(String[] args) {
+        
     }
 
     public static void testCodeGen(String[] args) {
@@ -47,7 +51,6 @@ public class Tester {
         } catch (Exception e6) {
             e6.printStackTrace();
         } 
-
     }
 
     public static void testEquals(String[] args) {
@@ -71,6 +74,84 @@ public class Tester {
         System.out.println(P1.root.toString().hashCode());
     }
 
+    public static void testIsContinuous(String[] args) {
+        Parser P = new Parser(args[0]);
+        NonCompiledFunction func = new NonCompiledFunction(P.root, P.argList);
+        func.print();
+        Double val = Double.parseDouble(args[1]);
+        try { 
+            System.out.println("isContinuous(" + val +
+                               ") = " + func.isContinuous(val)
+                              ); 
+        }
+        catch (Exception e) { e.printStackTrace(); } 
+    }
+
+    public static void testNonCompiledFunction(String[] args) {
+        Parser P = new Parser(args[0]);
+        NonCompiledFunction func = new NonCompiledFunction(P.root, P.argList);
+        System.out.println();
+        func.print();
+        System.out.println();
+        System.out.println("Bi-Variate: " + func.isBivariate());
+        System.out.println();
+        if (func.isBivariate()) {
+            try { 
+                double x = Double.parseDouble(args[1]);
+                double y = Double.parseDouble(args[2]);
+                System.out.println("f(" + x + "," + y + ") = " + 
+                    func.value(x, y)
+                                  ); 
+            }
+            catch (Exception e) { e.printStackTrace(); }
+        }
+        else { 
+            try { 
+                System.out.println("f(" + args[1] + ") = " + func.value(Double.parseDouble(args[1])));    
+            }
+            catch (Exception e) { e.printStackTrace(); }
+        }
+        System.out.println();
+    }
+
+    public static void testNewton(String[] args) {
+        Parser P = new Parser(args[0]);
+        Node func = P.root;
+        try { 
+            Node deriv = P.root.pderiv("x");
+            HashMap<String, Double> argList = P.argList;
+            double x0 = Double.parseDouble(args[1]);
+            double threshold = Double.parseDouble(args[2]);
+            System.out.println("newton(func, deriv, "+x0+", "+threshold+") = "+
+                                NonCompiledFunction.newton(func, deriv, "x", argList, x0, threshold));
+        }
+        catch (Exception e) { 
+            e.printStackTrace();
+        }
+    }
+
+    public void testGraphCanvas(String[] args) {
+        GraphCanvas g = new GraphCanvas();
+        Scanner sc = new Scanner(System.in);
+        while (sc.hasNextLine()) {
+            System.out.println("> ");
+            String text = sc.nextLine();
+            g.inputbar.setText(text);
+            g.G.keyPressed( new KeyEvent(g,
+                            KeyEvent.KEY_PRESSED,
+                            System.currentTimeMillis(),
+                            0,
+                            KeyEvent.VK_ENTER,
+                            '\n' ));
+            try { 
+                Thread.sleep(500);
+            }
+            catch (InterruptedException e) {
+                e.printStackTrace();
+            }
+         }
+    }
+
     public static void main(String[] args) { 
         //testTokenizer(args);
         //testOpCompareTo(args);
@@ -81,6 +162,9 @@ public class Tester {
         testCodeGen(args);
         //testEquals(args);
         //testHashCode(args);
+        //testIsContinuous(args);
+        //testNonCompiledFunction(args);
+        //testNewton(args);
     }
 
 }
