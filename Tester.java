@@ -60,7 +60,6 @@ public class Tester {
         }
     }
 
-
     public static void testToString(String[] args) {
         Parser P = new Parser(args[0]);
         Node tree = P.root;
@@ -73,8 +72,41 @@ public class Tester {
         tree.print();
     }
 
+    public static void testIsUnivariateMonomial(String[] args) {
+        Parser P = new Parser(args[0]);
+        Node tree = P.root;
+        System.out.println(tree.getClass().getName());
+        tree.print();
+        System.out.println();
+        VarNode varnode = new VarNode(args[1]);
+        varnode.print();
+        int pow = Integer.parseInt(args[2]);
+        System.out.println("pow="+pow);
+        System.out.println();
+        System.out.println(tree.isUnivariateMonomial(varnode, pow));
+    }
+
+    public static void testIsEC(String[] args) {
+        Parser P = new Parser(args[0]);
+        Node tree = P.root;
+        System.out.println(tree.getClass().getName());
+        tree.print();
+        System.out.println();
+        System.out.println(Node.isEC(tree));
+    }
+
+    public static void testGetECparams(String[] args) {
+        Parser P = new Parser(args[0]);
+        P.root.print();
+        System.out.println();
+        long[] coeffs = Node.getECparams(P.root);
+        System.out.println("y^2 = x^3 + a*x + b");
+        System.out.println("a = "+coeffs[0]);
+        System.out.println("b = "+coeffs[1]);
+    }
+
     public static void testPderiv(String[] args) {
-        
+            
     }
 
     public static void testCodeGen(String[] args) {
@@ -187,7 +219,7 @@ public class Tester {
         }
     }
 
-    public void testGraphCanvas(String[] args) {
+    public static void testGraphCanvas(String[] args) {
         GraphCanvas g = new GraphCanvas();
         Scanner sc = new Scanner(System.in);
         while (sc.hasNextLine()) {
@@ -214,15 +246,18 @@ public class Tester {
         //testOpCompareTo(args);
         //testToString(args);
         //testPrint(args);
+        //testIsUnivariateMonomial(args);
+        //testIsEC(args);
+        //testGetECparams(args);
         //testDeriv(args);
         //testNewton(args);
-        testCodeGen(args);
+        //testCodeGen(args);
         //testEquals(args);
         //testHashCode(args);
         //testIsContinuous(args);
         //testNonCompiledFunction(args);
         //testNewton(args);
-        //testGraphCanvas(args);
+        testGraphCanvas(args);
     }
 
 }

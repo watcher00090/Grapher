@@ -1,3 +1,5 @@
+
+
 public abstract class Function {
 
     static double CONTINUITY_INCREMENT = .00000001;

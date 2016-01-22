@@ -36,17 +36,21 @@ implements ComponentListener, WindowListener, KeyListener,
     Checkbox ticklabelscheckbox;
     Checkbox compilecheckbox;
     Checkbox derivcheckbox;
+    Checkbox nextmultiplescheckbox;
 
-    String funcString = "";
+    String inputString = "";
 
-    static double MOUSE_CURVE_PROXIMITY_FACTOR = 5; //pixels on screen 
+    static double MOUSE_FUNCTION_PROXIMITY_FACTOR = 5; //pixels on screen 
+    static double MOUSE_CURVE_PROXIMITY_FACTOR = .1; //mathematical distance
     static double DRAG_SENSITIVITY_COEFFICIENT = 1;
 
-    Point target = new Point();
+    Point target = new Point(Double.MAX_VALUE, Double.MIN_VALUE);
 
     //for dragging the function around
     int mx1;
     int my1;
+
+    boolean nmthreadactive = false;
 
     public RenderController(GraphCanvas graphCanvas, Frame frame, TextField inputbar, 
                      TextField xminbar, TextField xmaxbar, 
@@ -54,7 +58,7 @@ implements ComponentListener, WindowListener, KeyListener,
                      TextField xincrementbar, TextField yincrementbar, 
                      Button helpbutton, Dialog helpdialog,
                      Checkbox ticklabelscheckbox, Checkbox compilecheckbox,
-                     Checkbox derivcheckbox
+                     Checkbox derivcheckbox, Checkbox nextmultiplescheckbox
                      ) {
 
         this.graphCanvas = graphCanvas;
@@ -71,8 +75,9 @@ implements ComponentListener, WindowListener, KeyListener,
         this.ticklabelscheckbox = ticklabelscheckbox;
         this.compilecheckbox = compilecheckbox;
         this.derivcheckbox = derivcheckbox;
+        this.nextmultiplescheckbox = nextmultiplescheckbox;
 
-        inputbar.setText("x^2+y^2-1");
+        inputbar.setText("y^2-x^3+x-1");
         xminbar.setText("-5");
         xmaxbar.setText("5");
         yminbar.setText("-5");
@@ -80,7 +85,7 @@ implements ComponentListener, WindowListener, KeyListener,
         xincrementbar.setText("1");
         yincrementbar.setText("1");
 
-        funcString = inputbar.getText();
+        inputString = inputbar.getText();
     }
 
     public void componentResized(ComponentEvent e) { 
@@ -115,38 +120,54 @@ implements ComponentListener, WindowListener, KeyListener,
                 graphCanvas.setYIncrement(yincrement);
 
                // if (!(graphCanvas.getFuncString().equals(inputbar.getText()))) 
-                graphCanvas.updateFunction(inputbar.getText());                
+                graphCanvas.updateRenderObject(inputbar.getText());                
                 graphCanvas.render();
             }
         }
     }
    
     public void mouseMoved(MouseEvent e) {
-
         int mx = e.getX();
         int my = e.getY();
-
         if (graphCanvas.func != null) { 
-
-            if (graphCanvas.func.isBivariate() == false) {
-
+            double px = graphCanvas.renderXToMathematicalX(mx);
+            double py = Double.MAX_VALUE;
+            try {
+                py = graphCanvas.func.value(px);
+            }
+            catch(Exception ex) { ex.printStackTrace(); }
+            double diff = Math.abs(graphCanvas.mathematicalYToRenderY(py) - my);
+            if (diff < MOUSE_FUNCTION_PROXIMITY_FACTOR) {
+                graphCanvas.hovering = true;
+                graphCanvas.setLabeledPointCoordinates(px, py);
+            }
+            else graphCanvas.hovering = false; 
+        }
+        if (graphCanvas.zls != null) { 
+            try {
                 double px = graphCanvas.renderXToMathematicalX(mx);
-                double py = Double.MAX_VALUE;
-
-                try {
-                    py = graphCanvas.func.value(px);
-                }
-                catch(Exception ex) { ex.printStackTrace(); }
-
-                double diff = Math.abs(graphCanvas.mathematicalYToRenderY(py) - my);
-
-                if (diff < MOUSE_CURVE_PROXIMITY_FACTOR) {
-                    graphCanvas.hoveringoverfunction = true;
+                double py = graphCanvas.renderYToMathematicalY(my);
+                double val = graphCanvas.zls.lhsvalue(px, py);
+                if (Math.abs(val) < MOUSE_CURVE_PROXIMITY_FACTOR) {
+                    graphCanvas.hovering = true;
                     graphCanvas.setLabeledPointCoordinates(px, py);
                 }
-                else graphCanvas.hoveringoverfunction = false; 
-
+                else graphCanvas.hovering = false; 
             }
+            catch(Exception ex) { ex.printStackTrace(); }
+        }
+        if (graphCanvas.ec != null) { 
+            try {
+                double px = graphCanvas.renderXToMathematicalX(mx);
+                double py = graphCanvas.renderYToMathematicalY(my);
+                double val = graphCanvas.ec.lhsvalue(px, py);
+                if (Math.abs(val) < MOUSE_CURVE_PROXIMITY_FACTOR) {
+                    graphCanvas.hovering = true;
+                    graphCanvas.setLabeledPointCoordinates(px, py);
+                }
+                else graphCanvas.hovering = false; 
+            }
+            catch(Exception ex) { ex.printStackTrace(); }
         }
         graphCanvas.render();
     }
@@ -154,6 +175,21 @@ implements ComponentListener, WindowListener, KeyListener,
     public void mousePressed(MouseEvent e) {
          mx1 = e.getX();
          my1 = e.getY();
+    }
+
+    public void mouseClicked(MouseEvent e) {
+         if (graphCanvas.ec != null) {
+            double px = graphCanvas.renderXToMathematicalX(e.getX());
+            double py = graphCanvas.renderYToMathematicalY(e.getY());
+            graphCanvas.ec.basePoint = graphCanvas.ec.makePoint(px, py);
+System.out.println("basepoint.x="+graphCanvas.ec.basePoint.x);
+System.out.println("basepoint.y="+graphCanvas.ec.basePoint.y);
+System.out.println();
+            graphCanvas.ec.movingPoint = null;
+            graphCanvas.ecpoints.clear();
+            graphCanvas.ecpoints.add(graphCanvas.ec.basePoint);
+            graphCanvas.render();
+         }
     }
 
     public void mouseDragged(MouseEvent e) {
@@ -188,11 +224,30 @@ implements ComponentListener, WindowListener, KeyListener,
         if (e.getSource().equals(compilecheckbox)) {
             if (state == ItemEvent.SELECTED) graphCanvas.setCompile(true);
             if (state == ItemEvent.DESELECTED) graphCanvas.setCompile(false);
-            //graphCanvas.updateFunction(graphCanvas.getFuncString());
         }
-        //if (e.getSource().equals(derivcheckbox)) {
-        //    graphCanvas.render();
-        //}
+        if (e.getSource().equals(nextmultiplescheckbox)) { 
+            if (state == ItemEvent.DESELECTED) {
+                nmthreadactive = false;
+            }
+            if (state == ItemEvent.SELECTED) {
+                nmthreadactive = true;
+                if (graphCanvas.ec != null && graphCanvas.ec.basePoint != null) { 
+                    Thread nmthread = new Thread() {
+                        public void run() {
+                            while (nmthreadactive) {
+                                graphCanvas.ecpoints.add(graphCanvas.ec.nextMultiple());
+                                graphCanvas.render();
+                                try {
+                                    sleep(1000);
+                                }
+                                catch (InterruptedException e) {}
+                            } 
+                        }
+                    };
+                    nmthread.start();
+                }
+            }
+        } 
     }
 
     public void windowClosing(WindowEvent e) {
@@ -216,7 +271,6 @@ implements ComponentListener, WindowListener, KeyListener,
     //unimplemented methods
     public void keyTyped(KeyEvent e) {}
     public void keyReleased(KeyEvent e) {}
-    public void mouseClicked(MouseEvent e) {}
     public void mouseEntered(MouseEvent e) {}
     public void mouseExited(MouseEvent e) {}
     public void mouseReleased(MouseEvent e) {}
@@ -229,14 +283,6 @@ implements ComponentListener, WindowListener, KeyListener,
     public void componentHidden(ComponentEvent e) {}
     public void componentMoved(ComponentEvent e) {}
     public void componentShown(ComponentEvent e) {}
-}
-
-class AnimThread extends Thread {
-
-    public AnimThread(GraphCanvas g) {
-        
-    }
-
 }
 
 public class GraphCanvas extends Canvas {
@@ -259,9 +305,11 @@ public class GraphCanvas extends Canvas {
     Label ticklabelscheckboxlabel = new Label();
     Label compilecheckboxlabel = new Label();
     Label derivcheckboxlabel = new Label();
+    Label nextmultiplescheckboxlabel = new Label();
     Checkbox ticklabelscheckbox = new Checkbox();
     Checkbox compilecheckbox = new Checkbox();
     Checkbox derivcheckbox = new Checkbox();
+    Checkbox nextmultiplescheckbox = new Checkbox();
     Button helpbutton = new Button();
     Dialog helpdialog = new Dialog(frame);
     TextArea helptext = new TextArea();
@@ -274,7 +322,7 @@ public class GraphCanvas extends Canvas {
     int RWIDTH; //render area width
     int RHEIGHT; //render area height
 
-    boolean hoveringoverfunction = false;
+    boolean hovering = false;
     boolean ticklabelsenabled = false;
     int targetRadius = 5;
     double lx;
@@ -293,7 +341,11 @@ public class GraphCanvas extends Canvas {
     double yincrement = 1;
 
     Function func = null;
-    String funcString = "";
+    ZeroLevelSet zls = null; //non-ec ZeroLevelSet            
+    EllipticCurve ec = null;            
+    ArrayList<Point> ecpoints = new ArrayList<Point>();
+
+    String inputString = "";
 
     boolean compile = false;
 
@@ -368,7 +420,7 @@ public class GraphCanvas extends Canvas {
                                  xincrementbar, yincrementbar, 
                                  helpbutton, helpdialog,    
                                  ticklabelscheckbox, compilecheckbox,
-                                 derivcheckbox);
+                                 derivcheckbox, nextmultiplescheckbox);
 
         inputbar.addKeyListener(G);
         xminbar.addKeyListener(G);
@@ -380,6 +432,7 @@ public class GraphCanvas extends Canvas {
         ticklabelscheckbox.addItemListener(G);
         compilecheckbox.addItemListener(G);
         derivcheckbox.addItemListener(G);
+        nextmultiplescheckbox.addItemListener(G);
         frame.addComponentListener(G);
         this.addMouseMotionListener(G);
         this.addMouseListener(G);
@@ -499,6 +552,14 @@ public class GraphCanvas extends Canvas {
         ic.gridy = 0;
         tablecontainer.add(compilecheckbox, ic);
 
+        nextmultiplescheckboxlabel.setText("nextMultiples:");
+        ic.gridx = 10;
+        ic.gridy = 0;
+        tablecontainer.add(nextmultiplescheckboxlabel, ic);
+        
+        ic.gridx = 11;
+        ic.gridy = 0;
+        tablecontainer.add(nextmultiplescheckbox, ic);
 /*
         derivcheckboxlabel.setText("deriv:");
         ic.gridx = 10;
@@ -570,8 +631,8 @@ public class GraphCanvas extends Canvas {
     public void setYIncrement(double yincrement) { this.yincrement = yincrement; }
     public void setFunction(Function func) { this.func = func; }
     public void setCompile(boolean compile) { this.compile = compile; }
-    public String getFuncString() { return funcString; }
-    public void setFuncString(String funcString) { this.funcString = funcString; }
+    public String getInputString() { return inputString; }
+    public void setInputString(String inputString) { this.inputString = inputString; }
 
     public void updateViewingWindow(double xmin, double xmax, double ymin, double ymax) {
         this.xmin = xmin;
@@ -595,26 +656,28 @@ public class GraphCanvas extends Canvas {
         yrange = Math.abs(ymax - ymin);
     }
 
-    public void updateFunction(String str) {
-
-        funcString = str;
-
-System.out.println("str = " + str);
-System.out.println("funcString = " + funcString);
+    public void updateRenderObject(String inputString) {
+System.out.println("inputString = " + inputString);
 System.out.println("compile = " + compile);
-
-        if (funcString.equals("") ) {
-            func = null;
-        }
-        else { 
-            Parser P = new Parser(funcString);
-            if (compile) {
+        func = null;
+        zls = null;
+        ec = null;
+        ecpoints.clear();
+        if (!inputString.equals("")) {
+            Parser P = new Parser(inputString);
+            if (Node.isEC(P.root)) { 
+                long[] ecparams = Node.getECparams(P.root);
+                long A = ecparams[0];
+                long B = ecparams[1];
+                ec = new EllipticCurve(A, B);
+            }
+            else if (compile) {
                 Compiler.compileFunction(P); 
                 try {
                     Class c = Class.forName(Compiler.getClassName(P));
-                    func = (Function) c.newInstance(); 
-                    System.out.println("updated func");
-                    compiledfunctionnumber++;
+                    Function func = (Function) c.newInstance(); 
+                    if (func.isBivariate()) zls = new ZeroLevelSet(func);
+                    else this.func = func;
                 } catch (ClassNotFoundException e2) {
                     e2.printStackTrace();
                 } catch (IllegalAccessException e3) {
@@ -627,7 +690,11 @@ System.out.println("compile = " + compile);
                     e6.printStackTrace();
                 } 
             }
-            else func = new NonCompiledFunction(P.root, P.argList);
+            else {
+                NonCompiledFunction func = new NonCompiledFunction(P.root, P.argList); 
+                if (func.isBivariate()) zls = new ZeroLevelSet(func);
+                else this.func = func;
+            }
         }
     }
 
@@ -655,10 +722,12 @@ System.out.println("compile = " + compile);
         g.setColor(Color.WHITE);
         g.fillRect(0,0, WIDTH, HEIGHT);
         paintAxesAndTickmarks(g);
-        if (func != null) 
-            if (func.isBivariate()) 
-                paintBivariateFunc(g);
-            else paintUnivariateFunc(g);
+        if (func != null) paintUnivariateFunc(func, g);
+        if (zls != null) paintZeroLevelSet(zls, g); 
+        if (ec != null) 
+            paintZeroLevelSet(ec, g);
+            paintECpoints(g);
+        if (hovering) paintHoverDot(g);
     } 
    
     public void paintAxesAndTickmarks(Graphics g) {
@@ -753,7 +822,7 @@ System.out.println("compile = " + compile);
         }
     }
     
-    public void paintUnivariateFunc(Graphics g) {
+    public void paintUnivariateFunc(Function func, Graphics g) {
 
             g.setColor(Color.BLACK);
             ArrayList<Integer> currxpoints = new ArrayList<Integer>();
@@ -783,24 +852,35 @@ System.out.println("compile = " + compile);
             g.drawPolyline(toIntArray(currxpoints), toIntArray(currypoints), currxpoints.size());
             currxpoints.clear();
             currypoints.clear();
-
-        if (hoveringoverfunction) {
-            g.setColor(labeledpointcolor);
-
-            g.fillOval( mathematicalXToRenderX(lx) - targetRadius,
-                        mathematicalYToRenderY(ly) - targetRadius ,
-                        2*targetRadius, 2*targetRadius);
-
-            String targetstring = "("+nf.format(lx)+", "+nf.format(ly)+")";
-            
-            g.drawString(targetstring,
-                         mathematicalXToRenderX(lx) + TARGET_STRING_HORIZONTAL_OFFSET, 
-                         mathematicalYToRenderY(ly) + TARGET_STRING_VERTICAL_OFFSET);
-        }
-
     }
 
-    public void paintBivariateFunc(Graphics g) {
+    public void paintHoverDot(Graphics g) {
+
+        g.setColor(labeledpointcolor);
+
+        g.fillOval( mathematicalXToRenderX(lx) - targetRadius,
+                    mathematicalYToRenderY(ly) - targetRadius ,
+                    2*targetRadius, 2*targetRadius);
+
+        String targetstring = "("+nf.format(lx)+", "+nf.format(ly)+")";
+        
+        g.drawString(targetstring,
+                     mathematicalXToRenderX(lx) + TARGET_STRING_HORIZONTAL_OFFSET, 
+                     mathematicalYToRenderY(ly) + TARGET_STRING_VERTICAL_OFFSET);
+    }
+
+    public void paintECpoints(Graphics g) {
+        g.setColor(Color.BLACK);
+        for (Point p : ecpoints) {
+System.out.println("px="+p.x);
+System.out.println("py="+p.y);
+System.out.println();
+            g.fillOval(mathematicalXToRenderX(p.x), 
+                       mathematicalYToRenderY(p.y), 10, 10);
+        }
+    }
+
+    public void paintZeroLevelSet(ZeroLevelSet zls, Graphics g) {
         g.setColor(Color.BLACK);
         double tmp = 0;
         double xincr = 10*xrange/NUM_POINTS;
@@ -808,7 +888,7 @@ System.out.println("compile = " + compile);
         try {
             for (double x = xmin; x <= xmax; x += xincr) {
                 for (double y = ymin; y <= ymax; y += yincr) {
-                    double val = func.value(x, y);
+                    double val = zls.lhsvalue(x, y);
                     if (val * tmp < 0 || val == 0) {
                         g.fillRect(mathematicalXToRenderX(x), 
                                    mathematicalYToRenderY(y), 1, 1);
@@ -819,7 +899,7 @@ System.out.println("compile = " + compile);
             }    
             for (double y = ymin; y <= ymax; y += yincr) {
                 for (double x = xmin; x <= xmax; x += xincr) {
-                    double val = func.value(x, y);
+                    double val = zls.lhsvalue(x, y);
                     if (val * tmp < 0 || val == 0)  {
                         g.fillRect(mathematicalXToRenderX(x), 
                                    mathematicalYToRenderY(y), 1, 1);
@@ -831,7 +911,7 @@ System.out.println("compile = " + compile);
         }
         catch (Exception e) { e.printStackTrace(); }
     }
-   
+
    //convert from mathematical coordinates to coordinates on the canvas
     public int mathematicalXToRenderX(double px) {
         int rx = (int) (HORIZONTAL_BORDER_OFFSET + RWIDTH / 2.0 + (px - cx) * (RWIDTH / xrange) );

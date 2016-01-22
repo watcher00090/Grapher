@@ -33,6 +33,157 @@ public abstract class Node {
     public Vector<Node> getTermv() { return null; }
     public Vector<Integer> getSignv() { return null; }
 
+    // checks if current node has strucure: 
+    //     c * var ^ pow, where c can be any NumNode and var ^ pow is an OpNode.
+    //      
+    // cases currently being recognized:
+    // 
+    //      *         *         *         *       ^        ^ 
+    //     / \       / \       / \       / \     / \      / \
+    //    ^   c     ^   c     c   ^     c   ^   var pow pow var
+    //   / \       / \           / \       / \
+    //  var pow  pow var       var pow   pow var
+    //
+    //      additional cases if (pow = 0)
+    //          c
+    //
+    //      additional cases if (pow = 1)
+    //           *       *       var      
+    //          / \     / \
+    //        var  c   c   var
+    //
+    public boolean isUnivariateMonomial(VarNode var, int pow) {
+        //additional cases
+        if (pow == 0) {
+            if (this instanceof NumNode) return true;
+        }
+        if (pow == 1) {
+            if (equals(var)) return true;
+            if (getOp() == Op.Times && left != null && right != null) {
+                if (left.equals(var) && right instanceof NumNode && right.eval() != 0) return true;       
+                if (right.equals(var) && left instanceof NumNode && left.eval() != 0) return true;       
+            }
+        }
+        //general case
+        NumNode pownode = new NumNode(pow);
+        if (getOp() == Op.Hat && left != null && right != null) {
+            if (left.equals(var) && right.equals(pownode)) return true;
+            if (left.equals(pownode) && right.equals(var)) return true;
+        }
+        if (getOp() == Op.Times && left != null && right != null) {
+            if (left.getOp() == Op.Hat && right instanceof NumNode && right.eval() != 0 
+                && left.left != null && left.right != null) {
+                if (left.left.equals(var) && left.right.equals(pownode)) return true;
+                if (left.left.equals(pownode) && left.right.equals(var)) return true;
+            }
+            if (right.getOp() == Op.Hat && left instanceof NumNode && left.eval() != 0 
+                && right.left != null && right.right != null) {
+                if (right.left.equals(var) && right.right.equals(pownode)) return true;
+                if (right.left.equals(pownode) && right.right.equals(var)) return true;
+            }
+        }
+        return false;
+    }
+
+    // Returns the univariate monomial's coefficient
+    //
+    // Univariate monomial forms currently being recognized:
+    // 
+    //      *         *         *         *       ^        ^      c     var   *       *
+    //     / \       / \       / \       / \     / \      / \                / \     / \ 
+    //    ^   c     ^   c     c   ^     c   ^   var pow pow var            var  c   c  var 
+    //   / \       / \           / \       / \
+    //  var pow  pow var       var pow   pow var   
+    //
+    public static double getMonCoeff(Node mon) {
+        if (mon instanceof NumNode) return mon.eval();
+        if (mon instanceof VarNode) return 1;
+        if (mon.getOp() == Op.Hat) return 1;
+        if (mon.getOp() == Op.Times) {
+            if (mon.left instanceof NumNode) return mon.left.eval();
+            if (mon.right instanceof NumNode) return mon.right.eval();
+        }
+        return Double.MAX_VALUE;
+    }   
+
+    //  det  = 4*A^3 + 27*B^2
+    //  the termlist must have either 3 or 4 terms!
+    //
+    //  if the termlist has 3 terms, it must have form: 
+    //      y^2 - x^3 ± b*x = 0;  OR  
+    //      y^2 - x^3 ± c = 0;    
+    //
+    //  if the termlist has 4 terms, it must have form:
+    //      y^2 - x^3 ± b*x ± c = 0; OR
+    public static boolean isEC(Node root) {
+        try { 
+            Vector<Node> termv = root.getTermv();
+            Vector<Integer> signv = root.getSignv();
+            int length = termv.size();
+            if (length <= 2) return false;
+            if (length > 4) return false;
+            Node t1 = termv.get(0); 
+            if (    !(t1.isUnivariateMonomial(new VarNode("y"), 2)) 
+                 || getMonCoeff(t1) != 1
+                 || signv.get(0).intValue() == -1) return false;
+            Node t2 = termv.get(1); 
+            if (    !(t2.isUnivariateMonomial(new VarNode("x"), 3)) 
+                 || getMonCoeff(t2) != 1
+                 || signv.get(1).intValue() == 1) return false;
+            if (length == 3) {
+                Node t3 = termv.get(2); 
+                if (    !(t3.isUnivariateMonomial(new VarNode("x"), 1)) 
+                     && !(t3.isUnivariateMonomial(new VarNode("x"), 0)) ) return false;
+                double d = getMonCoeff(t3);
+                if (d == 0) return false;
+                if (Math.round(d) != d) return false;
+            }
+            if (length == 4) {
+                Node t3 = termv.get(2); 
+                if (!(t3.isUnivariateMonomial(new VarNode("x"), 1))) return false;
+                Node t4 = termv.get(3); 
+                if (!(t4.isUnivariateMonomial(new VarNode("x"), 0))) return false;
+                double A = getMonCoeff(t3) * signv.get(2).intValue();
+                double B = getMonCoeff(t4) * signv.get(3).intValue();
+                if (Math.round(A) != A || Math.round(B) != B) return false; //not integer coefficients
+                if (4*A*A*A + 27*B*B == 0) return false;
+            }
+            return true;
+        }
+        catch (Exception e) {
+            return false;
+        }
+    }
+
+    // ret[0] = a
+    // ret[1] = b
+    public static long[] getECparams(Node ec) {
+        if (!isEC(ec)) return null;
+        Vector<Node> termv = ec.getTermv();
+        Vector<Integer> signv = ec.getSignv();
+        int length = termv.size();
+        long[] params = new long[2];
+        if (length == 3) {
+            Node t3 = termv.get(2); 
+            int sgn = signv.get(2).intValue();
+            if (t3.isUnivariateMonomial(new VarNode("x"), 1)) {
+                params[0] = Math.round(getMonCoeff(t3) * sgn * -1);
+                params[1] = 0;
+            }
+            else {
+                params[0] = 0;
+                params[1] = Math.round(getMonCoeff(t3) * sgn * -1);
+            }
+        }
+        if (length == 4) {
+            Node t3 = termv.get(2); 
+            Node t4 = termv.get(3); 
+            params[0] = Math.round(getMonCoeff(t3) * signv.get(2).intValue() * -1);
+            params[1] = Math.round(getMonCoeff(t4) * signv.get(3).intValue() * -1);
+        }
+        return params;
+    }
+    
     public void print() { 
         this.print(0);
         System.out.println();
@@ -150,35 +301,27 @@ class TermList extends Node {
                                            ).reduce(); 
             else return termv.get(0).reduce();
         } 
-
         TermList list = new TermList();
         double constsum = 0;
-
         for (int i=0; i<termv.size(); i++) {
             Node t = termv.get(i).reduce();
             if (t instanceof NumNode) constsum += t.eval() * signv.get(i);
             else list.add(t, signv.get(i));
         }
-
         if (constsum != 0) list.add(new NumNode(constsum), 1);
-    
         else if (constsum == 0 && list.termv.size() == 0) 
             list.add(new NumNode(constsum), 1);
-        
         if (list.termv.size() == 1) { 
-
             if (list.signv.get(0) == -1) 
                 return (new OpNode(Op.Times, 
                                    new NumNode(-1), 
                                    list.termv.get(0))
                        ).reduce(); 
-
             else return list.termv.get(0).reduce();
-
         } 
         return list;
     }
-    
+
 }
 
 class OpNode extends Node { 
@@ -328,28 +471,17 @@ class OpNode extends Node {
             }
         }
         else if (l instanceof NumNode && !(r instanceof NumNode)) {
-
             if (l.eval() == 0 && op == Op.Times && r instanceof VarNode) 
                 return new NumNode(0);
-
             if (l.eval() == 0 && op == Op.Plus) return r;
-
             if (l.eval() == 1 && op == Op.Times) return r;
-
         }
         else if (!(l instanceof NumNode) && r instanceof NumNode) {
-
             if (l instanceof VarNode && op == Op.Times && r.eval() == 0) 
                 return new NumNode(0); 
-
             if (op == Op.Plus && r.eval() == 0) return l;
-
             if (op == Op.Times && r.eval() == 1) return l;
-
-            if (op == Op.Divide && r.eval() == 1) return l;
-
-            if (op == Op.Hat && r.eval() == 1) return l;
-
+            if (op == Op.Divide && r.eval() == 1) return l; if (op == Op.Hat && r.eval() == 1) return l;
         }
         return new OpNode(op, l, r); //irreducible 
     }
@@ -402,7 +534,7 @@ class NumNode extends Node {
     double val;
 
     public NumNode(double val) { 
-        this.val = val; 
+        this.val = (double) val; 
         left = null;
         right = null;
     }
@@ -631,6 +763,7 @@ class SumNode extends Node {
     public Node pderiv(String var) throws Exception { return null; }
 
     public Node reduce() throws Exception { return this; }
+
 }
 
 class ProdNode extends Node { 
@@ -684,7 +817,6 @@ class ProdNode extends Node {
         return this;
     }
 
-    public int size() { return 1; }
 }
 
 //Riemann Explicit Formula as a sum of cosines
