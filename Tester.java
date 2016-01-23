@@ -241,6 +241,40 @@ public class Tester {
          }
     }
 
+    public static void testColorGenerator(String[] args) {
+
+        int r = 100;
+        int g = 100;
+        int b = 100;
+
+        int r_i = -50;
+        int g_i = 10;
+        int b_i = 15;
+
+        for (int i=0; i<1000; i++) {
+            
+        System.out.println("(r,b,g) = (" + r + ", " + g + ", " + b + ")"); 
+
+            r += r_i;
+            g += g_i;
+            b += b_i;
+
+            if (r<0 || r>255) {
+                r_i *= -1;
+                r += r_i;
+            }
+            if (g<0 || g>255) { 
+                g_i *= -1;
+                g += g_i;
+            }
+            if (b<0 || b>255) {     
+                b_i *= -1;
+                b += b_i;
+            }
+        }
+
+    }
+
     public static void main(String[] args) { 
         //testTokenizer(args);
         //testOpCompareTo(args);
@@ -258,6 +292,7 @@ public class Tester {
         //testNonCompiledFunction(args);
         //testNewton(args);
         testGraphCanvas(args);
+        //testColorGenerator(args);
     }
 
 }

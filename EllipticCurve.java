@@ -70,11 +70,8 @@ public class EllipticCurve extends ZeroLevelSet {
         // the reflection of the third intersection
 
         double l = (Q.y - P.y) / (Q.x - P.x);
-        double v = (P.y - l * P.x);
-
-        double x = l*l - P.x - Q.x;
-        double y = -(l * x + v);
-        return new Point(x, y);
+        double v = (P.y*Q.x - Q.y*P.x) / (Q.x - P.x);
+        return new Point(l*l - P.x - Q.x, -l*l*l + l*(P.x + Q.x) - v);
     }
 
     //
@@ -91,12 +88,9 @@ public class EllipticCurve extends ZeroLevelSet {
 
         // the general case: compute the tangent, find
         // the reflection of the third intersection
-        double l = (3*P.x*P.x + A) / 2*P.y;
-        double v =  P.y - l * P.x;
-
-        double x = l*l - 2*P.x;
-        double y = - (l * x + v);
-        return new Point(x,y);
+        double l = (3*P.x*P.x + A) / (2*P.y);
+        double v = (-P.x*P.x*P.x + A*P.x + 2*B) / (2*P.y);
+        return new Point(l*l - P.x - P.x, -l*l*l + l*(P.x + P.x) - v);
     }
 
     //

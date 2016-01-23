@@ -85,7 +85,7 @@ implements ComponentListener, WindowListener, KeyListener,
         xincrementbar.setText("1");
         yincrementbar.setText("1");
 
-        inputString = inputbar.getText();
+        keyPressed(new KeyEvent(inputbar, KeyEvent.VK_ENTER, System.currentTimeMillis(), 0, KeyEvent.VK_ENTER, '\r'));
     }
 
     public void componentResized(ComponentEvent e) { 
@@ -99,7 +99,7 @@ implements ComponentListener, WindowListener, KeyListener,
     }
 
     public void keyPressed(KeyEvent e) {
-        if (e.getKeyChar() == KeyEvent.VK_ENTER) {
+        if (e.getKeyCode() == KeyEvent.VK_ENTER) {
 
             if (   !xminbar.getText().equals("")
                 && !xmaxbar.getText().equals("")
@@ -119,8 +119,9 @@ implements ComponentListener, WindowListener, KeyListener,
                 graphCanvas.setXIncrement(xincrement);
                 graphCanvas.setYIncrement(yincrement);
 
-               // if (!(graphCanvas.getFuncString().equals(inputbar.getText()))) 
-                graphCanvas.updateRenderObject(inputbar.getText());                
+                if (!(graphCanvas.getInputString().equals(inputbar.getText()))) { 
+                    graphCanvas.updateRenderObject(inputbar.getText());                
+                }
                 graphCanvas.render();
             }
         }
@@ -188,6 +189,7 @@ System.out.println();
             graphCanvas.ec.movingPoint = null;
             graphCanvas.ecpoints.clear();
             graphCanvas.ecpoints.add(graphCanvas.ec.basePoint);
+            if (graphCanvas.colorprogression.size() < graphCanvas.ecpoints.size()) graphCanvas.colorprogression.add(graphCanvas.nextColor());
             graphCanvas.render();
          }
     }
@@ -236,6 +238,8 @@ System.out.println();
                         public void run() {
                             while (nmthreadactive) {
                                 graphCanvas.ecpoints.add(graphCanvas.ec.nextMultiple());
+                                if (graphCanvas.colorprogression.size() < graphCanvas.ecpoints.size()) 
+                                    graphCanvas.colorprogression.add(graphCanvas.nextColor());
                                 graphCanvas.render();
                                 try {
                                     sleep(1000);
@@ -324,21 +328,20 @@ public class GraphCanvas extends Canvas {
 
     boolean hovering = false;
     boolean ticklabelsenabled = false;
-    int targetRadius = 5;
+    static int targetRadius = 5;
     double lx;
     double ly;
 
-    //initialized prior to the input of a func so that the axes can be drawn
-    double xmin = -15; 
-    double xmax =  15;
-    double ymin = -15;
-    double ymax =  15;
-    double xrange = Math.abs(xmax - xmin);
-    double yrange = Math.abs(ymax - ymin);
-    double cx = 0;
-    double cy = 0;
-    double xincrement = 1;
-    double yincrement = 1;
+    double xmin;
+    double xmax;
+    double ymin;
+    double ymax;
+    double xrange;
+    double yrange;
+    double cx;
+    double cy;
+    double xincrement;
+    double yincrement;
 
     Function func = null;
     ZeroLevelSet zls = null; //non-ec ZeroLevelSet            
@@ -399,6 +402,16 @@ public class GraphCanvas extends Canvas {
         "The following built-in functions are recognized:\n"+
         "   sin, cos, exp, tan, sqrt, log, ln, abs, factorial, arcsin, arccos, arctan\n\n";
 
+    ArrayList<Color> colorprogression = new ArrayList<Color>();
+
+    int r_curr = 200;
+    int g_curr = 100;
+    int b_curr = 50;
+
+    int r_i = 10;
+    int g_i = -10;
+    int b_i = 10;
+        
     public GraphCanvas() {
 
         super();
@@ -439,8 +452,6 @@ public class GraphCanvas extends Canvas {
         helpbutton.addActionListener(G);
         helpdialog.addWindowListener(G);
         frame.addWindowListener(G);
-
-        render();
     }
 
     private void assembleLayout() {
@@ -656,7 +667,8 @@ public class GraphCanvas extends Canvas {
         yrange = Math.abs(ymax - ymin);
     }
 
-    public void updateRenderObject(String inputString) {
+    public void updateRenderObject(String str) {
+        inputString = str;
 System.out.println("inputString = " + inputString);
 System.out.println("compile = " + compile);
         func = null;
@@ -859,7 +871,7 @@ System.out.println("compile = " + compile);
         g.setColor(labeledpointcolor);
 
         g.fillOval( mathematicalXToRenderX(lx) - targetRadius,
-                    mathematicalYToRenderY(ly) - targetRadius ,
+                    mathematicalYToRenderY(ly) - targetRadius,
                     2*targetRadius, 2*targetRadius);
 
         String targetstring = "("+nf.format(lx)+", "+nf.format(ly)+")";
@@ -870,13 +882,12 @@ System.out.println("compile = " + compile);
     }
 
     public void paintECpoints(Graphics g) {
-        g.setColor(Color.BLACK);
-        for (Point p : ecpoints) {
-System.out.println("px="+p.x);
-System.out.println("py="+p.y);
-System.out.println();
-            g.fillOval(mathematicalXToRenderX(p.x), 
-                       mathematicalYToRenderY(p.y), 10, 10);
+        for (int i = 0; i < ecpoints.size(); i++) {
+            Point p = ecpoints.get(i); 
+            g.setColor(colorprogression.get(i));
+            g.fillOval(mathematicalXToRenderX(p.x) - targetRadius, 
+                       mathematicalYToRenderY(p.y) - targetRadius, 
+                       2*targetRadius, 2*targetRadius);
         }
     }
 
@@ -910,6 +921,25 @@ System.out.println();
             }    
         }
         catch (Exception e) { e.printStackTrace(); }
+    }
+
+    public Color nextColor() {
+        r_curr += r_i; 
+        g_curr += g_i;
+        b_curr += b_i;
+        if (r_curr < 0 || r_curr > 255) {
+            r_i *= -1;
+            r_curr += r_i;
+        }
+        if (g_curr < 0 || g_curr > 255) {
+            g_i *= -1;
+            g_curr += g_i;
+        }
+        if (b_curr < 0 || b_curr > 255) {
+            b_i *= -1;
+            b_curr += b_i;
+        }
+        return new Color(r_curr, g_curr, b_curr);
     }
 
    //convert from mathematical coordinates to coordinates on the canvas
