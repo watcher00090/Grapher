@@ -611,12 +611,14 @@ System.out.println("compile = " + compile);
             if (compile) {
                 Compiler.compileFunction(P); 
                 try {
-                    Class c = Class.forName(Compiler.getClassName(P));
+					String name = Compiler.getClassName(P);
+					Class c = Class.forName(name);
                     func = (Function) c.newInstance(); 
                     System.out.println("updated func");
                     compiledfunctionnumber++;
                 } catch (ClassNotFoundException e2) {
                     e2.printStackTrace();
+					System.out.println(e2.getMessage());
                 } catch (IllegalAccessException e3) {
                     e3.printStackTrace();
                 } catch (InstantiationException e4) {
