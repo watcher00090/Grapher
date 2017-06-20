@@ -685,13 +685,18 @@ System.out.println("compile = " + compile);
             }
             else if (compile) {
                 Compiler.compileFunction(P); 
+                compiledfunctionnumber++;
                 try {
+
                     Class c = Class.forName(Compiler.getClassName(P));
                     Function func = (Function) c.newInstance(); 
                     if (func.isBivariate()) zls = new ZeroLevelSet(func);
                     else this.func = func;
+                    System.out.println("updated func");
+                    
                 } catch (ClassNotFoundException e2) {
                     e2.printStackTrace();
+					System.out.println(e2.getMessage());
                 } catch (IllegalAccessException e3) {
                     e3.printStackTrace();
                 } catch (InstantiationException e4) {

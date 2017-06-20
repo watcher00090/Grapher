@@ -13,7 +13,7 @@ public class Compiler {
 
 System.out.println("classname="+classname);
         
-        if ((new File("../bin/" + classname + ".class")).exists() == true) return; 
+        if ((new File("bin/" + classname + ".class")).exists() == true) return; 
 
 System.out.println("compiling new file!");
 
@@ -103,8 +103,8 @@ System.out.println("got here");
                  );
 
         try { 
-            File compilesrc = new File("compilesrc");
-            compilesrc.mkdir();
+            //File compilesrc = new File("compilesrc");
+            //compilesrc.mkdir();
             //compilesrc.deleteOnExit();
 
             File tmpfile = new File("compilesrc/" + classname + ".java");
@@ -117,19 +117,16 @@ System.out.println("got here");
         catch (NullPointerException e1) {
             e1.printStackTrace();
         }
-        catch (IOException e2) {
-            System.out.println(e2.getMessage());
-            e2.printStackTrace();
-        }
+		catch (IOException e2) {
+			e2.printStackTrace();	
+		}
        
         try {
-            String[] cmdArray = new String[6];
+            String[] cmdArray = new String[4];
             cmdArray[0] = "javac";
             cmdArray[1] = "-d";
-            cmdArray[2] = "../bin";
-            cmdArray[3] = "-cp";
-            cmdArray[4] = "../bin";
-            cmdArray[5] = "compilesrc/" + classname + ".java";
+            cmdArray[2] = "bin"; 
+            cmdArray[3] = "compilesrc/" + classname + ".java";
             Process process = Runtime.getRuntime().exec(cmdArray, null);
             process.waitFor();
         }
