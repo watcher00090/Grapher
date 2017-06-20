@@ -49,8 +49,6 @@ System.out.println("compiling new file!");
         
         while (context.nodev.size() != 0) { 
 
-System.out.println("got here"); 
-
             Node node = context.nodev.remove(0);
             String name = context.namev.remove(0);
     

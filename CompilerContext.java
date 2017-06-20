@@ -19,22 +19,19 @@ public class CompilerContext {
 
     public void add(Node n) {
         if (n instanceof SumNode) { 
-System.out.println("adding a SumNode");
-System.out.println();
+System.out.println("COMPILER_CONTEXT: ADDING A SUMNODE...");
             numSums++;
             namev.add("sum_"+numSums);
             nodev.add(n);
         }
         if (n instanceof ProdNode) {
-System.out.println("adding a ProdNode");
-System.out.println();
+System.out.println("COMPILER_CONTEXT: ADDING A PRODNODE...");
             numProds++;
             namev.add("prod_"+numProds);
             nodev.add(n);
         }
         if (n instanceof RexNode) {
-System.out.println("adding a RexNode");
-System.out.println();
+System.out.println("COMPILER_CONTEXT: ADDING A REXNODE...");
             numRexes++;
             namev.add("rex_"+numRexes);
             nodev.add(n);

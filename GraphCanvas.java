@@ -217,7 +217,7 @@ implements ComponentListener, WindowListener, KeyListener,
 
     public void actionPerformed(ActionEvent e) {
         if (e.getSource() == helpbutton) { 
-            System.out.println("helpbuttonpressed!");
+            System.out.println("HELP_BUTTON_PRESSED!");
             helpdialog.setSize(600,500);
             helpdialog.setVisible(true);
         }
@@ -339,10 +339,6 @@ public class GraphCanvas extends Canvas {
         "   sum(expr, index variable, start index, limit index )\n"+
         "   prod(expr, index variable, start index, limit index )\n\n"+
 
-        "We also have one special form which is a compiled representation\n"+
-        "of the Riemann explicit formula for the func concentrated on prime powers:\n"+
-        "   1 - 2*sum(cos(ln(x)*zeta_zero(n)), n, 1, 200) - 1/x(x^2-1)\n\n"+
-        
         "The following constant expressions are recognized:\n"+
         "   e, pi, g, G, c\n\n" + 
 
@@ -629,8 +625,9 @@ System.out.println("renderMode = " + renderMode);
                 compiledfunctionnumber++;
                 try {
                     Class c = Class.forName(Compiler.getClassName(P));
-                    System.out.println("COMPILED CLASS SUCCESSFULLY FOUND.");
+                    System.out.println("COMPILED CLASS SUCCESSFULLY FOUND BY JVM.");
                     Function func = (Function) c.newInstance(); 
+                    System.out.println("COMPILED CLASS SUCCESSFULLY LOADED AND INSTANTIATED BY JVM.");
                     if (func.isBivariate()) zls = new ZeroLevelSet(func);
                     else this.func = func;
                     System.out.println("UPDATE FUNCTION: SUCCESS.");
