@@ -36,9 +36,8 @@ implements ComponentListener, WindowListener, KeyListener,
     Checkbox ticklabelscheckbox;
     Checkbox compilecheckbox;
     Checkbox derivcheckbox;
-    Checkbox nextmultiplescheckbox;
 
-    String inputString = "";
+    String exprString = "";
 
     static double MOUSE_FUNCTION_PROXIMITY_FACTOR = 5; //pixels on screen 
     static double MOUSE_CURVE_PROXIMITY_FACTOR = .1; //mathematical distance
@@ -58,8 +57,7 @@ implements ComponentListener, WindowListener, KeyListener,
                      TextField xincrementbar, TextField yincrementbar, 
                      Button helpbutton, Dialog helpdialog,
                      Checkbox ticklabelscheckbox, Checkbox compilecheckbox,
-                     Checkbox derivcheckbox, Checkbox nextmultiplescheckbox
-                     ) {
+                     Checkbox derivcheckbox) {
 
         this.graphCanvas = graphCanvas;
         this.frame = frame;
@@ -74,10 +72,7 @@ implements ComponentListener, WindowListener, KeyListener,
         this.helpdialog = helpdialog;
         this.ticklabelscheckbox = ticklabelscheckbox;
         this.compilecheckbox = compilecheckbox;
-        this.derivcheckbox = derivcheckbox;
-        this.nextmultiplescheckbox = nextmultiplescheckbox;
 
-        inputbar.setText("y^2-x^3+x-1");
         xminbar.setText("-5");
         xmaxbar.setText("5");
         yminbar.setText("-5");
@@ -119,12 +114,18 @@ implements ComponentListener, WindowListener, KeyListener,
                 graphCanvas.setXIncrement(xincrement);
                 graphCanvas.setYIncrement(yincrement);
 
-                if (!(graphCanvas.getInputString().equals(inputbar.getText()))) { 
-                    graphCanvas.updateRenderObject(inputbar.getText());                
-                }
+                String inputString = inputbar.getText().trim();
+                System.out.println("CONTROLLER FOUND INPUTSTRING='" + inputString + "'");    
+
+                graphCanvas.updateRenderObject(inputString, getInputRenderMode());
                 graphCanvas.render();
             }
         }
+    }
+
+    public RenderMode getInputRenderMode() {
+        boolean compileBoxTicked = compilecheckbox.getState();
+        return compileBoxTicked ? RenderMode.COMPILE : RenderMode.STANDARD; 
     }
    
     public void mouseMoved(MouseEvent e) {
@@ -157,19 +158,6 @@ implements ComponentListener, WindowListener, KeyListener,
             }
             catch(Exception ex) { ex.printStackTrace(); }
         }
-        if (graphCanvas.ec != null) { 
-            try {
-                double px = graphCanvas.renderXToMathematicalX(mx);
-                double py = graphCanvas.renderYToMathematicalY(my);
-                double val = graphCanvas.ec.lhsvalue(px, py);
-                if (Math.abs(val) < MOUSE_CURVE_PROXIMITY_FACTOR) {
-                    graphCanvas.hovering = true;
-                    graphCanvas.setLabeledPointCoordinates(px, py);
-                }
-                else graphCanvas.hovering = false; 
-            }
-            catch(Exception ex) { ex.printStackTrace(); }
-        }
         graphCanvas.render();
     }
     
@@ -178,20 +166,9 @@ implements ComponentListener, WindowListener, KeyListener,
          my1 = e.getY();
     }
 
+    // will make a store points feature later.
     public void mouseClicked(MouseEvent e) {
-         if (graphCanvas.ec != null) {
-            double px = graphCanvas.renderXToMathematicalX(e.getX());
-            double py = graphCanvas.renderYToMathematicalY(e.getY());
-            graphCanvas.ec.basePoint = graphCanvas.ec.makePoint(px, py);
-System.out.println("basepoint.x="+graphCanvas.ec.basePoint.x);
-System.out.println("basepoint.y="+graphCanvas.ec.basePoint.y);
-System.out.println();
-            graphCanvas.ec.movingPoint = null;
-            graphCanvas.ecpoints.clear();
-            graphCanvas.ecpoints.add(graphCanvas.ec.basePoint);
-            if (graphCanvas.colorprogression.size() < graphCanvas.ecpoints.size()) graphCanvas.colorprogression.add(graphCanvas.nextColor());
-            graphCanvas.render();
-         }
+        //graphCanvas.render();
     }
 
     public void mouseDragged(MouseEvent e) {
@@ -224,34 +201,8 @@ System.out.println();
             graphCanvas.render();
         }
         if (e.getSource().equals(compilecheckbox)) {
-            if (state == ItemEvent.SELECTED) graphCanvas.setCompile(true);
-            if (state == ItemEvent.DESELECTED) graphCanvas.setCompile(false);
+            //
         }
-        if (e.getSource().equals(nextmultiplescheckbox)) { 
-            if (state == ItemEvent.DESELECTED) {
-                nmthreadactive = false;
-            }
-            if (state == ItemEvent.SELECTED) {
-                nmthreadactive = true;
-                if (graphCanvas.ec != null && graphCanvas.ec.basePoint != null) { 
-                    Thread nmthread = new Thread() {
-                        public void run() {
-                            while (nmthreadactive) {
-                                graphCanvas.ecpoints.add(graphCanvas.ec.nextMultiple());
-                                if (graphCanvas.colorprogression.size() < graphCanvas.ecpoints.size()) 
-                                    graphCanvas.colorprogression.add(graphCanvas.nextColor());
-                                graphCanvas.render();
-                                try {
-                                    sleep(1000);
-                                }
-                                catch (InterruptedException e) {}
-                            } 
-                        }
-                    };
-                    nmthread.start();
-                }
-            }
-        } 
     }
 
     public void windowClosing(WindowEvent e) {
@@ -309,11 +260,9 @@ public class GraphCanvas extends Canvas {
     Label ticklabelscheckboxlabel = new Label();
     Label compilecheckboxlabel = new Label();
     Label derivcheckboxlabel = new Label();
-    Label nextmultiplescheckboxlabel = new Label();
     Checkbox ticklabelscheckbox = new Checkbox();
     Checkbox compilecheckbox = new Checkbox();
     Checkbox derivcheckbox = new Checkbox();
-    Checkbox nextmultiplescheckbox = new Checkbox();
     Button helpbutton = new Button();
     Dialog helpdialog = new Dialog(frame);
     TextArea helptext = new TextArea();
@@ -344,13 +293,11 @@ public class GraphCanvas extends Canvas {
     double yincrement;
 
     Function func = null;
-    ZeroLevelSet zls = null; //non-ec ZeroLevelSet            
-    EllipticCurve ec = null;            
-    ArrayList<Point> ecpoints = new ArrayList<Point>();
+    ZeroLevelSet zls = null;
 
-    String inputString = "";
+    String exprString = "";
 
-    boolean compile = false;
+    RenderMode renderMode = RenderMode.STANDARD;
 
     static int NUM_POINTS = 10000;
     static double CURVE_TRACING_THRESHOLD = .1;
@@ -433,7 +380,7 @@ public class GraphCanvas extends Canvas {
                                  xincrementbar, yincrementbar, 
                                  helpbutton, helpdialog,    
                                  ticklabelscheckbox, compilecheckbox,
-                                 derivcheckbox, nextmultiplescheckbox);
+                                 derivcheckbox);
 
         inputbar.addKeyListener(G);
         xminbar.addKeyListener(G);
@@ -445,7 +392,6 @@ public class GraphCanvas extends Canvas {
         ticklabelscheckbox.addItemListener(G);
         compilecheckbox.addItemListener(G);
         derivcheckbox.addItemListener(G);
-        nextmultiplescheckbox.addItemListener(G);
         frame.addComponentListener(G);
         this.addMouseMotionListener(G);
         this.addMouseListener(G);
@@ -562,15 +508,6 @@ public class GraphCanvas extends Canvas {
         ic.gridx = 9;
         ic.gridy = 0;
         tablecontainer.add(compilecheckbox, ic);
-
-        nextmultiplescheckboxlabel.setText("nextMultiples:");
-        ic.gridx = 10;
-        ic.gridy = 0;
-        tablecontainer.add(nextmultiplescheckboxlabel, ic);
-        
-        ic.gridx = 11;
-        ic.gridy = 0;
-        tablecontainer.add(nextmultiplescheckbox, ic);
 /*
         derivcheckboxlabel.setText("deriv:");
         ic.gridx = 10;
@@ -641,9 +578,8 @@ public class GraphCanvas extends Canvas {
     public void setXIncrement(double xincrement) { this.xincrement = xincrement; }
     public void setYIncrement(double yincrement) { this.yincrement = yincrement; }
     public void setFunction(Function func) { this.func = func; }
-    public void setCompile(boolean compile) { this.compile = compile; }
-    public String getInputString() { return inputString; }
-    public void setInputString(String inputString) { this.inputString = inputString; }
+    public String getExprString() { return exprString; }
+    public void setExprString(String exprString) { this.exprString = exprString; }
 
     public void updateViewingWindow(double xmin, double xmax, double ymin, double ymax) {
         this.xmin = xmin;
@@ -667,36 +603,40 @@ public class GraphCanvas extends Canvas {
         yrange = Math.abs(ymax - ymin);
     }
 
-    public void updateRenderObject(String str) {
-        inputString = str;
+    public void updateRenderObject(String inputString, RenderMode newMode) {
+System.out.println("exprString = " + exprString);
 System.out.println("inputString = " + inputString);
-System.out.println("compile = " + compile);
-        func = null;
-        zls = null;
-        ec = null;
-        ecpoints.clear();
-        if (!inputString.equals("")) {
+System.out.println("newMode = " + newMode);
+System.out.println("renderMode = " + renderMode);
+
+        if (inputString.isEmpty()) { // an empty input should always show a blank graph, regardless of the renderMode.
+            System.out.println("BLANK_INPUT: RESETTING GRAPH...");
+            func = null;
+            zls = null;
+        }
+
+        // if either the mode or the input has changed ....
+        else if (!(inputString.equals(exprString) && newMode == renderMode)) {
+
+            System.out.println("PARSING INPUT STRING...");
             Parser P = new Parser(inputString);
-            if (Node.isEC(P.root)) { 
-                long[] ecparams = Node.getECparams(P.root);
-                long A = ecparams[0];
-                long B = ecparams[1];
-                ec = new EllipticCurve(A, B);
-            }
-            else if (compile) {
+            System.out.println("INPUT SUCCESSFULLY PARSED.");
+
+            if (newMode == RenderMode.COMPILE) {
+                
+                System.out.println("COMPILE_MODE: UPDATING FUNCTION ...");
                 Compiler.compileFunction(P); 
                 compiledfunctionnumber++;
                 try {
-
                     Class c = Class.forName(Compiler.getClassName(P));
+                    System.out.println("COMPILED CLASS SUCCESSFULLY FOUND.");
                     Function func = (Function) c.newInstance(); 
                     if (func.isBivariate()) zls = new ZeroLevelSet(func);
                     else this.func = func;
-                    System.out.println("updated func");
-                    
+                    System.out.println("UPDATE FUNCTION: SUCCESS.");
                 } catch (ClassNotFoundException e2) {
                     e2.printStackTrace();
-					System.out.println(e2.getMessage());
+                    System.out.println(e2.getMessage());
                 } catch (IllegalAccessException e3) {
                     e3.printStackTrace();
                 } catch (InstantiationException e4) {
@@ -707,12 +647,26 @@ System.out.println("compile = " + compile);
                     e6.printStackTrace();
                 } 
             }
-            else {
+
+            else if (newMode == RenderMode.STANDARD) {
+                System.out.println("NORMAL_MODE: UPDATING FUNCTION ...");
                 NonCompiledFunction func = new NonCompiledFunction(P.root, P.argList); 
                 if (func.isBivariate()) zls = new ZeroLevelSet(func);
                 else this.func = func;
+                System.out.println("NORMAL_MODE: FUNCTION SUCCESSFULLY UPDATED.");
             }
+
+        } 
+        
+        else {
+
+            System.out.println("RENDER MODE AND INPUT ARE UNCHANGED. ");
+
         }
+
+        renderMode = newMode;
+        exprString = inputString;
+
     }
 
     public void render() {
@@ -741,9 +695,6 @@ System.out.println("compile = " + compile);
         paintAxesAndTickmarks(g);
         if (func != null) paintUnivariateFunc(func, g);
         if (zls != null) paintZeroLevelSet(zls, g); 
-        if (ec != null) 
-            paintZeroLevelSet(ec, g);
-            paintECpoints(g);
         if (hovering) paintHoverDot(g);
     } 
    
@@ -884,16 +835,6 @@ System.out.println("compile = " + compile);
         g.drawString(targetstring,
                      mathematicalXToRenderX(lx) + TARGET_STRING_HORIZONTAL_OFFSET, 
                      mathematicalYToRenderY(ly) + TARGET_STRING_VERTICAL_OFFSET);
-    }
-
-    public void paintECpoints(Graphics g) {
-        for (int i = 0; i < ecpoints.size(); i++) {
-            Point p = ecpoints.get(i); 
-            g.setColor(colorprogression.get(i));
-            g.fillOval(mathematicalXToRenderX(p.x) - targetRadius, 
-                       mathematicalYToRenderY(p.y) - targetRadius, 
-                       2*targetRadius, 2*targetRadius);
-        }
     }
 
     public void paintZeroLevelSet(ZeroLevelSet zls, Graphics g) {

@@ -1,0 +1,3 @@
+enum RenderMode {
+    STANDARD, COMPILE;
+}
