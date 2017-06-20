@@ -129,12 +129,12 @@ System.out.println("compiling new file!");
             Process process = Runtime.getRuntime().exec(cmdArray, null);
             process.waitFor();
 
-            String[] cmdArray = new String[4];
+            /*String[] cmdArray = new String[4];
             cmdArray[0] = "javac";
             cmdArray[1] = "-d";
             cmdArray[2] = "bin"; 
             cmdArray[3] = "compilesrc/" + classname + ".java";
-            Process process = Runtime.getRuntime().exec(cmdArray, null);
+            Process process = Runtime.getRuntime().exec(cmdArray, null); */
         }
         catch (Exception e) {
             e.printStackTrace();
