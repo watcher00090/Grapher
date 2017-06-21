@@ -917,6 +917,16 @@ System.out.println("renderMode = " + renderMode);
     }
 
     public static void main(String[] args) {
+        compile the file
+        String[] cmdArray = new String[6];
+        cmdArray[0] = "javac";
+        cmdArray[1] = "-d";
+        cmdArray[2] = "bin"; 
+        cmdArray[3] = "-cp"; 
+        cmdArray[4] = "bin"; 
+        cmdArray[5] = classname + ".java";
+        Process process = Runtime.getRuntime().exec(cmdArray, null);
+        process.waitFor();
         GraphCanvas g = new GraphCanvas();
      }
 

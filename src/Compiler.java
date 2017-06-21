@@ -15,7 +15,7 @@ System.out.println("classname="+classname);
         
         if ((new File("bin/" + classname + ".class")).exists() == true) return; 
 
-System.out.println("compiling new file!");
+System.out.println("COMPILING NEW FILE...");
 
         str.write( "public class " + classname + " extends Function {\n\n");
 
@@ -105,8 +105,8 @@ System.out.println("compiling new file!");
             //compilesrc.mkdir();
             //compilesrc.deleteOnExit();
 
-            File tmpfile = new File("compilesrc/" + classname + ".java");
-            //tmpfile.deleteOnExit();
+            File tmpfile = new File(classname + ".java");
+            tmpfile.deleteOnExit();
 
             FileWriter fr = new FileWriter(tmpfile); 
             fr.write(str.toString());
@@ -121,11 +121,13 @@ System.out.println("compiling new file!");
        
         try {
             //compile the file
-            String[] cmdArray = new String[4];
+            String[] cmdArray = new String[6];
             cmdArray[0] = "javac";
             cmdArray[1] = "-d";
             cmdArray[2] = "bin"; 
-            cmdArray[3] = "compilesrc/" + classname + ".java";
+            cmdArray[3] = "-cp"; 
+            cmdArray[4] = "bin"; 
+            cmdArray[5] = classname + ".java";
             Process process = Runtime.getRuntime().exec(cmdArray, null);
             process.waitFor();
 
