@@ -329,7 +329,7 @@ public class GraphCanvas extends Canvas {
         "   2) Summation and product expressions\n"+
         "   3) The zero level set of a function f(x, y).\n\n"+
 
-        "For example,\n"+
+        "For example, the following input expressions are valid:\n"+
         "   exp(-x^2/2)/sqrt(2*pi)\n"+
         "   ln(cos(.6535*x))\n"+
         "   sum(1/n^x,n,1,20)\n"+
@@ -917,16 +917,6 @@ System.out.println("renderMode = " + renderMode);
     }
 
     public static void main(String[] args) {
-        compile the file
-        String[] cmdArray = new String[6];
-        cmdArray[0] = "javac";
-        cmdArray[1] = "-d";
-        cmdArray[2] = "bin"; 
-        cmdArray[3] = "-cp"; 
-        cmdArray[4] = "bin"; 
-        cmdArray[5] = classname + ".java";
-        Process process = Runtime.getRuntime().exec(cmdArray, null);
-        process.waitFor();
         GraphCanvas g = new GraphCanvas();
      }
 
